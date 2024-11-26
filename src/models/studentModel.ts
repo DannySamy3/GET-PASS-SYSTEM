@@ -1,4 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
+import Counter from "./counterModel";
+import classModel from "./classModel";
 
 enum RegistrationStatus {
   REGISTERED = "REGISTERED",
@@ -6,73 +8,86 @@ enum RegistrationStatus {
   UNREGISTERED = "NOT REGISTERED",
 }
 
-const studentSchema = new mongoose.Schema({
-  firstName: {
-    type: String,
-    required: [true, "First Name is required"],
-    trim: true,
+enum Gender {
+  Male = "Male",
+  Female = "Female",
+}
+
+interface IStudent extends Document {
+  studentNumber: number;
+  firstName: string;
+  secondName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  amountPaid: string;
+  nationality: string;
+  classId: Schema.Types.ObjectId;
+  sponsor: string;
+  status: RegistrationStatus;
+  gender: Gender;
+  enrollmentYear: number;
+  image: string;
+  regNo: string;
+}
+
+const studentSchema: Schema<IStudent> = new Schema(
+  {
+    studentNumber: { type: Number, unique: true },
+    firstName: { type: String, required: true },
+    secondName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    email: { type: String, required: true },
+    phoneNumber: { type: String, required: true },
+    amountPaid: { type: String, required: true },
+    nationality: { type: String, required: true },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Class",
+      required: true,
+    },
+    sponsor: { type: String, required: true },
+    status: {
+      type: String,
+      enum: Object.values(RegistrationStatus),
+      required: true,
+    },
+    gender: {
+      type: String,
+      enum: Object.values(Gender),
+      required: true,
+    },
+    enrollmentYear: { type: Number, required: true },
+    image: { type: String },
+    regNo: { type: String, unique: true, required: true },
   },
-  secondName: {
-    type: String,
-    required: [true, "Middle name is required"],
-    trim: true,
-  },
-  lastName: {
-    type: String,
-    required: [true, "Surname is required"],
-    trim: true,
-  },
-  email: {
-    type: String,
-    required: [true, "Email is required"],
-  },
-  phoneNumber: {
-    type: String,
-    required: [true, "Please provide phone number"],
-    trim: true,
-  },
-  amountPaid: {
-    type: String,
-    required: [true, "Initial payment is needed"],
-    trim: true,
-  },
-  nationality: {
-    type: String,
-    required: [true, "Nationality is required"],
-    trim: true,
-  },
-  class: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "classModel",
-    required: [true, "Student class is required"],
-  },
-  regNo: {
-    type: String,
-    required: [true, "RegNo is required"],
-  },
-  sponsor: {
-    type: String,
-    required: [true, "Sponsor is required"],
-    trim: true,
-  },
-  status: {
-    type: String,
-    enum: Object.values(RegistrationStatus),
-    required: [true, "Status is required"],
-    trim: true,
-  },
-  enrollmentYear: {
-    type: Number,
-    default: new Date().getFullYear(),
-    required: [true, "Enrollment year is required"],
-  },
-  image: {
-    type: String,
-    required: false, // Set to true if the image is required
-    trim: true,
-  },
+  { timestamps: true }
+);
+
+// Middleware to handle regNo generation
+studentSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    // Increment studentNumber
+    const counter = await Counter.findOneAndUpdate(
+      { modelName: "studentNumber" },
+      { $inc: { sequenceValue: 1 } },
+      { new: true, upsert: true }
+    );
+
+    this.studentNumber = counter?.sequenceValue || 1;
+
+    // Resolve classInitial and generate regNo
+    const classDoc = await classModel.findById(this.classId);
+    if (classDoc) {
+      this.regNo = `${classDoc.classInitial}/${this.enrollmentYear
+        .toString()
+        .slice(-2)}/${this.studentNumber}`;
+    } else {
+      return next(new Error("Invalid classId: Class not found."));
+    }
+  }
+  next();
 });
 
-const studentModel = mongoose.model("Student", studentSchema);
-
+const studentModel = mongoose.model<IStudent>("Student", studentSchema);
 export default studentModel;

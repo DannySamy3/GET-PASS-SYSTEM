@@ -61,3 +61,60 @@ export const getStudents = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const createStudent = async (req: Request, res: Response) => {
+  const {
+    firstName,
+    secondName,
+    lastName,
+    email,
+    phoneNumber,
+    nationality,
+    classId,
+    regNo,
+    enrollmentYear,
+    sponsor,
+  } = req.body;
+
+  if (
+    !firstName ||
+    !secondName ||
+    !lastName ||
+    !email ||
+    !phoneNumber ||
+    !nationality ||
+    !classId ||
+    !regNo ||
+    !enrollmentYear ||
+    !sponsor
+  ) {
+    return res.status(400).json({
+      status: "fail",
+      message: "Missing input fields",
+    });
+  }
+
+  try {
+    const getSelectedClass = await classModel.findById(classId);
+
+    if (!getSelectedClass) {
+      return res.status(400).json({
+        status: "fail",
+        message: "The selected class doesn't exist",
+      });
+    }
+    const student = await studentModel.create(req.body);
+
+    res.status(201).json({
+      status: "success",
+      data: { student },
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal server error";
+    return res.status(500).json({
+      status: "fail",
+      message: errorMessage,
+    });
+  }
+};
