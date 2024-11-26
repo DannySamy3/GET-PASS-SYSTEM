@@ -66,6 +66,11 @@ const studentSchema = new mongoose.Schema({
     default: new Date().getFullYear(),
     required: [true, "Enrollment year is required"],
   },
+  image: {
+    type: String,
+    required: false, // Set to true if the image is required
+    trim: true,
+  },
 });
 
 const studentModel = mongoose.model("Student", studentSchema);

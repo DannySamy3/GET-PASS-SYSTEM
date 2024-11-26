@@ -36,6 +36,7 @@ mongoose.connect(DB).then(async () => {
     lastName: faker.person.lastName(),
     email: faker.internet.email(),
     class: randomClass._id,
+    image: faker.image.avatar(), // Placeholder image URL
     phoneNumber: faker.phone.number(),
     enrollmentYear: new Date().getFullYear(),
     amountPaid: `${faker.finance.amount({
