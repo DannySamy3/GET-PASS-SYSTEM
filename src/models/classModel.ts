@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-interface IClass extends Document {
+export interface IClass extends Document {
   name: string;
   duration: number;
   classInitial: string;

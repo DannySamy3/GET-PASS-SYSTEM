@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import studentModel from "./src/models/studentModel";
 import classModel from "./src/models/classModel";
 import counterModel from "./src/models/counterModel";
+import sponsorModel from "./src/models/sponsorModel"; // Import the Sponsor model
 import { faker } from "@faker-js/faker";
 
 config({ path: "./.env" });
@@ -24,29 +25,36 @@ const universityCourses = [
   { name: "Psychology", duration: 3, classInitial: "PS" },
 ];
 
+const sponsors = [
+  { name: "HESLB", Amount: 1000 },
+  { name: "Metfund", Amount: 2000 },
+  { name: "Private", Amount: 3000 },
+];
+
 mongoose.connect(DB).then(async () => {
   console.log("DB connection successful!");
 
-  // Clear existing data
   await classModel.deleteMany({});
   await studentModel.deleteMany({});
   await counterModel.deleteMany({});
+  await sponsorModel.deleteMany({});
 
-  // Seed classes
+  const createdSponsors = await sponsorModel.insertMany(sponsors);
+
   const classes = await classModel.insertMany(universityCourses);
   console.log("Classes seeded successfully!");
 
-  // Initialize counter for studentNumber
   await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
 
-  // Generate students
   const students = await Promise.all(
     Array.from({ length: 1000 }, async () => {
       const randomClass = classes[Math.floor(Math.random() * classes.length)];
+      const randomSponsor =
+        createdSponsors[Math.floor(Math.random() * createdSponsors.length)];
+
       const enrollmentYear =
         Math.floor(Math.random() * (2024 - 2009 + 1)) + 2009;
 
-      // Increment the student number
       const counter = await counterModel.findOneAndUpdate(
         { modelName: "studentNumber" },
         { $inc: { sequenceValue: 1 } },
@@ -55,10 +63,14 @@ mongoose.connect(DB).then(async () => {
 
       const studentNumber = counter?.sequenceValue || 1;
 
-      // Generate regNo
       const regNo = `${randomClass.classInitial}/${enrollmentYear
         .toString()
         .slice(-2)}/${studentNumber}`;
+
+      let registrationStatus = "NOT REGISTERED";
+      if (randomSponsor.name === "Metfund") {
+        registrationStatus = "REGISTERED";
+      }
 
       return {
         studentNumber,
@@ -67,24 +79,15 @@ mongoose.connect(DB).then(async () => {
         lastName: faker.person.lastName(),
         email: faker.internet.email(),
         phoneNumber: faker.phone.number(),
-        amountPaid: `${faker.finance.amount({
-          min: 1000,
-          max: 10000,
-          dec: 2,
-        })} TZS`,
+
         nationality: faker.location.country(),
         classId: randomClass._id,
-        sponsor: faker.person.fullName(),
-        status:
-          Math.random() < 0.33
-            ? "REGISTERED"
-            : Math.random() < 0.5
-            ? "PARTIAL REGISTERED"
-            : "NOT REGISTERED",
+        sponsor: randomSponsor._id,
+        status: registrationStatus,
         gender: Math.random() < 0.5 ? "Male" : "Female",
         enrollmentYear,
         image: faker.image.avatar(),
-        regNo, // Assign the generated regNo here
+        regNo,
       };
     })
   );

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import studentModel from "../models/studentModel";
 import classModel from "../models/classModel";
+import sponsorModel from "../models/sponsorModel";
 
 export const getStudents = async (req: Request, res: Response) => {
   try {
@@ -62,7 +63,10 @@ export const getStudents = async (req: Request, res: Response) => {
   }
 };
 
-export const createStudent = async (req: Request, res: Response) => {
+export const createStudent = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const {
     firstName,
     secondName,
@@ -71,9 +75,11 @@ export const createStudent = async (req: Request, res: Response) => {
     phoneNumber,
     nationality,
     classId,
-    regNo,
     enrollmentYear,
-    sponsor,
+    sponsorId,
+    gender,
+
+    image = "",
   } = req.body;
 
   if (
@@ -84,35 +90,147 @@ export const createStudent = async (req: Request, res: Response) => {
     !phoneNumber ||
     !nationality ||
     !classId ||
-    !regNo ||
     !enrollmentYear ||
-    !sponsor
+    !sponsorId ||
+    !gender
   ) {
-    return res.status(400).json({
+    res.status(400).json({
       status: "fail",
       message: "Missing input fields",
     });
+    return;
   }
 
   try {
     const getSelectedClass = await classModel.findById(classId);
-
     if (!getSelectedClass) {
-      return res.status(400).json({
+      res.status(400).json({
         status: "fail",
         message: "The selected class doesn't exist",
       });
+      return;
     }
-    const student = await studentModel.create(req.body);
+
+    const getSponsor = await sponsorModel.findById(sponsorId);
+    if (!getSponsor) {
+      res.status(400).json({
+        status: "fail",
+        message: "The selected sponsor doesn't exist",
+      });
+      return;
+    }
+
+    const status =
+      getSponsor.name === "Metfund" ? "REGISTERED" : "NOT REGISTERED";
+
+    const student = new studentModel({
+      firstName,
+      secondName,
+      lastName,
+      email,
+      phoneNumber,
+      nationality,
+      classId,
+      sponsor: sponsorId,
+      status,
+      gender,
+
+      image,
+      enrollmentYear,
+    });
+
+    const savedStudent = await student.save();
 
     res.status(201).json({
       status: "success",
-      data: { student },
+      data: { student: savedStudent },
     });
   } catch (error) {
+    console.error("Error while creating student:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Internal server error";
-    return res.status(500).json({
+    res.status(500).json({
+      status: "fail",
+      message: errorMessage,
+    });
+  }
+};
+
+export const getStudentById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const studentId = req.params.id;
+    const student = await studentModel.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    return res.status(200).json(student);
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const updateStudentSponsor = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { studentId, sponsorId } = req.body;
+
+  // Validate inputs
+  if (!studentId || !sponsorId) {
+    res.status(400).json({
+      status: "fail",
+      message: "Missing required fields: studentId or sponsorId",
+    });
+    return;
+  }
+
+  try {
+    // Check if student exists
+    const student = await studentModel.findById(studentId);
+    if (!student) {
+      res.status(404).json({
+        status: "fail",
+        message: "Student not found",
+      });
+      return;
+    }
+
+    // Check if sponsor exists
+    const sponsor = await sponsorModel.findById(sponsorId);
+    if (!sponsor) {
+      res.status(404).json({
+        status: "fail",
+        message: "Sponsor not found",
+      });
+      return;
+    }
+
+    // Update the student's sponsor
+    student.sponsor = sponsorId;
+    await student.save();
+
+    res.status(200).json({
+      status: "success",
+      message: "Sponsor updated successfully",
+      data: {
+        student: {
+          id: student._id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          currentSponsor: sponsor.name,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error updating student sponsor:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal server error";
+    res.status(500).json({
       status: "fail",
       message: errorMessage,
     });
