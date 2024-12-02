@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import sponsorModel from "../models/sponsorModel";
 import studentModel from "../models/studentModel";
-import { UpdateResult } from "mongoose"; // Import type for update result
+import { UpdateResult } from "mongoose";
 
 export const createSponsor = async (
   req: Request,
@@ -57,7 +57,6 @@ export const deleteSponsor = async (
   }
 
   try {
-    // Check if the original sponsor exists
     const sponsor = await sponsorModel.findById(id);
     if (!sponsor) {
       res.status(404).json({
@@ -67,7 +66,6 @@ export const deleteSponsor = async (
       return;
     }
 
-    // Automatically fetch a 'private' sponsor (assumed criteria here)
     const privateSponsor = await sponsorModel.findOne({
       name: "Private",
     });
@@ -79,7 +77,6 @@ export const deleteSponsor = async (
       return;
     }
 
-    // Update students that were referencing the original sponsor
     const updatedStudents = await studentModel.updateMany(
       { sponsor: id },
       { $set: { sponsor: privateSponsor._id } }
@@ -94,7 +91,6 @@ export const deleteSponsor = async (
     //   return;
     // }
 
-    // Delete the sponsor
     const deletedSponsor = await sponsorModel.findByIdAndDelete(id);
 
     if (!deletedSponsor) {

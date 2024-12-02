@@ -236,3 +236,33 @@ export const updateStudentSponsor = async (
     });
   }
 };
+
+export const getRegisteredStudents = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const students = await studentModel.find({ status: "REGISTERED" });
+
+    if (students.length === 0) {
+      res.status(404).json({
+        status: "fail",
+        message: "No registered students found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: students,
+    });
+  } catch (error) {
+    console.error("Error retrieving registered students:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal server error";
+    res.status(500).json({
+      status: "fail",
+      message: errorMessage,
+    });
+  }
+};

@@ -3,7 +3,7 @@ import Counter from "./counterModel";
 import classModel from "./classModel";
 
 // Enum for registration status
-enum RegistrationStatus {
+export enum RegistrationStatus {
   REGISTERED = "REGISTERED",
   UNREGISTERED = "NOT REGISTERED",
 }
