@@ -157,14 +157,27 @@ export const getScans = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const responseData: any = {
-      totalScans,
+    let responseData: any = {};
 
-      classCount: classCountWithNames,
-      statusCount: status === "COMPLETED" ? completedScans : failedScans,
-    };
+    if (!req.query || Object.keys(req.query).length === 0) {
+      responseData = { totalScans, scans };
+    } else if (req.query.date || req.query.month) {
+      responseData = {
+        totalScans,
+        scans,
+        classCount: classCountWithNames,
+        granted: completedScans,
+        denied: failedScans,
+      };
+    } else {
+      responseData = {
+        totalScans,
 
-    responseData.scans = scans;
+        classCount: classCountWithNames,
+        statusCount: status === "COMPLETED" ? completedScans : failedScans,
+      };
+      responseData.scans = scans;
+    }
 
     res.status(200).json(responseData);
   } catch (error) {
