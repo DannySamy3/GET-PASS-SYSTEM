@@ -71,33 +71,51 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const getScansByCriteria = async (req: Request, res: Response) => {
+export const getScans = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { status, date } = req.query; // Extract query parameters
+    const { status, date, month } = req.query;
     const criteria: any = {};
-    if (status) criteria.status = status; // Add status filter if provided
-    if (date) criteria.date = { $gte: new Date(date as string) }; // Add date filter if provided
+
+    if (status) {
+      criteria.status = status;
+    }
+
+    if (date) {
+      const parsedDate = new Date(date as string);
+
+      if (isNaN(parsedDate.getTime())) {
+        res.status(400).json({
+          message: "Invalid date format. Please provide a valid date string.",
+        });
+        return;
+      }
+
+      const startOfDay = new Date(parsedDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(parsedDate.setHours(23, 59, 59, 999));
+
+      criteria.date = { $gte: startOfDay, $lte: endOfDay };
+    }
+
+    if (month) {
+      const parsedMonth = parseInt(month as string, 10);
+      if (isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+        res.status(400).json({
+          message: "Invalid month. Please provide a valid month (1-12).",
+        });
+        return;
+      }
+
+      const currentYear = new Date().getFullYear();
+
+      const startOfMonth = new Date(currentYear, parsedMonth - 1, 1);
+      const endOfMonth = new Date(currentYear, parsedMonth, 0, 23, 59, 59, 999);
+
+      criteria.date = { $gte: startOfMonth, $lte: endOfMonth };
+    }
 
     const scans = await scanModel.find(criteria).populate("student");
-    res.status(200).json(scans);
-  } catch (error) {
-    if (error instanceof Error) {
-      res
-        .status(500)
-        .json({ message: `Error fetching scans: ${error.message}` });
-    } else {
-      res
-        .status(500)
-        .json({ message: "An unknown error occurred while fetching scans." });
-    }
-  }
-};
 
-// Controller to get all scans
-export const getAllScans = async (req: Request, res: Response) => {
-  try {
-    const scans = await scanModel.find().populate("student"); // Fetch all scans with populated student field
-    res.status(200).json(scans); // Send the scans as JSON response
+    res.status(200).json(scans);
   } catch (error) {
     if (error instanceof Error) {
       res
