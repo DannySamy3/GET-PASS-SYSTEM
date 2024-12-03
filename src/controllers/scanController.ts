@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import studentModel from "../models/studentModel";
 import scanModel from "../models/scanModel";
 import { RegistrationStatus } from "../models/studentModel";
+import classModel from "../models/classModel";
 
 enum ScanStatus {
   COMPLETED = "COMPLETED",
@@ -80,9 +81,10 @@ export const getScans = async (req: Request, res: Response): Promise<void> => {
       criteria.status = status;
     }
 
+    let scans;
+
     if (date) {
       const parsedDate = new Date(date as string);
-
       if (isNaN(parsedDate.getTime())) {
         res.status(400).json({
           message: "Invalid date format. Please provide a valid date string.",
@@ -94,9 +96,9 @@ export const getScans = async (req: Request, res: Response): Promise<void> => {
       const endOfDay = new Date(parsedDate.setHours(23, 59, 59, 999));
 
       criteria.date = { $gte: startOfDay, $lte: endOfDay };
-    }
 
-    if (month) {
+      scans = await scanModel.find(criteria).populate("student").lean();
+    } else if (month) {
       const parsedMonth = parseInt(month as string, 10);
       if (isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
         res.status(400).json({
@@ -106,16 +108,65 @@ export const getScans = async (req: Request, res: Response): Promise<void> => {
       }
 
       const currentYear = new Date().getFullYear();
-
       const startOfMonth = new Date(currentYear, parsedMonth - 1, 1);
       const endOfMonth = new Date(currentYear, parsedMonth, 0, 23, 59, 59, 999);
 
       criteria.date = { $gte: startOfMonth, $lte: endOfMonth };
+
+      scans = await scanModel.find(criteria).populate("student").lean();
+    } else {
+      scans = await scanModel.find(criteria).populate("student").lean();
     }
 
-    const scans = await scanModel.find(criteria).populate("student");
+    const totalScans = (await scanModel.find()).length;
 
-    res.status(200).json(scans);
+    const completedScans = scans.filter(
+      (scan) => scan.status === "COMPLETED"
+    ).length;
+
+    const failedScans = scans.filter((scan) => scan.status === "FAILED").length;
+
+    const classCount: Record<string, number> = {};
+
+    scans.forEach((scan) => {
+      const status = scan.status;
+      if ((status === "COMPLETED" || status === "FAILED") && scan.student) {
+        const classId = (scan.student as any).classId.toString();
+        if (classId) {
+          classCount[classId] = (classCount[classId] || 0) + 1;
+        }
+      }
+    });
+
+    const classIds = Object.keys(classCount);
+    const classes = await classModel
+      .find({
+        _id: { $in: classIds.map((id) => id) },
+      })
+      .lean();
+
+    const classNames: Record<string, string> = {};
+    classes.forEach((cls) => {
+      classNames[cls._id.toString()] = cls.classInitial;
+    });
+
+    const classCountWithNames: Record<string, number> = {};
+    for (const classId in classCount) {
+      if (classNames[classId]) {
+        classCountWithNames[classNames[classId]] = classCount[classId];
+      }
+    }
+
+    const responseData: any = {
+      totalScans,
+
+      classCount: classCountWithNames,
+      statusCount: status === "COMPLETED" ? completedScans : failedScans,
+    };
+
+    responseData.scans = scans;
+
+    res.status(200).json(responseData);
   } catch (error) {
     if (error instanceof Error) {
       res
