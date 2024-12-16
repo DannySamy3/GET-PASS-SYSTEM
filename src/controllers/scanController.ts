@@ -172,11 +172,10 @@ export const getScans = async (req: Request, res: Response): Promise<void> => {
     } else {
       responseData = {
         totalScans,
-
         classCount: classCountWithNames,
         statusCount: status === "COMPLETED" ? completedScans : failedScans,
+        scans, // Moved scans property here to avoid duplication
       };
-      responseData.scans = scans;
     }
 
     res.status(200).json(responseData);
