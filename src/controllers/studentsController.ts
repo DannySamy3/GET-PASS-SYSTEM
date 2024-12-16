@@ -255,6 +255,7 @@ export const getRegisteredStudents = async (
     res.status(200).json({
       status: "success",
       data: students,
+      studentNumber: students.length,
     });
   } catch (error) {
     console.error("Error retrieving registered students:", error);
