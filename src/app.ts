@@ -4,6 +4,7 @@ import studentRoute from "./routes/studentRoute";
 import sponsorRoute from "./routes/sponsorRoute";
 import scanRoute from "./routes/scanRoute";
 import authRoute from "./routes/authRoutes";
+import classRoutes from "./routes/classRoutes";
 import cors from "cors";
 
 const app = express();
@@ -15,6 +16,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 app.use("/getPass/students", studentRoute);
+app.use("/getPass/classes", classRoutes);
 app.use("/getPass/sponsors", sponsorRoute);
 app.use("/getPass/scans", scanRoute);
 app.use("/getPass/send-verification-code", authRoute);

@@ -23,6 +23,8 @@ const universityCourses = [
   { name: "Law", duration: 4, classInitial: "LW" },
   { name: "Architecture", duration: 5, classInitial: "AR" },
   { name: "Psychology", duration: 3, classInitial: "PS" },
+  { name: "Biotechnology", duration: 4, classInitial: "BT" },
+  { name: "Environmental Science", duration: 3, classInitial: "ES" },
 ];
 
 const sponsors = [
@@ -47,7 +49,7 @@ mongoose.connect(DB).then(async () => {
   await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
 
   const students = await Promise.all(
-    Array.from({ length: 1000 }, async () => {
+    Array.from({ length: 1500 }, async () => {
       const randomClass = classes[Math.floor(Math.random() * classes.length)];
       const randomSponsor =
         createdSponsors[Math.floor(Math.random() * createdSponsors.length)];

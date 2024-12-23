@@ -4,6 +4,7 @@ export interface IClass extends Document {
   name: string;
   duration: number;
   classInitial: string;
+  _id: any;
 }
 
 const classSchema: Schema = new Schema({

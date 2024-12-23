@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
 import studentModel from "../models/studentModel";
-import classModel from "../models/classModel";
+import classModel, { IClass } from "../models/classModel";
 import sponsorModel from "../models/sponsorModel";
+
+interface ClassStats {
+  registered: { [key: string]: number };
+  unregistered: { [key: string]: number };
+}
 
 export const getStudents = async (req: Request, res: Response) => {
   try {
@@ -265,5 +270,59 @@ export const getRegisteredStudents = async (
       status: "fail",
       message: errorMessage,
     });
+  }
+};
+
+// Define the structure for the response
+interface ClassStats {
+  registered: { [classInitial: string]: number };
+  unregistered: { [classInitial: string]: number };
+  classInitials: string[]; // Array of class initials only
+}
+
+export const getClassRegistrationStats = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    // Fetch all classes with their initials (only classInitial, not the full class details)
+    const classes: IClass[] = await classModel.find({}, { classInitial: 1 });
+
+    // Initialize response structure
+    const stats: ClassStats = {
+      registered: {},
+      unregistered: {},
+      classInitials: classes.map((classDoc) => classDoc.classInitial), // Populate with only class initials
+    };
+
+    // Iterate through classes and calculate stats
+    for (const classDoc of classes) {
+      // We directly use classDoc._id which is already an ObjectId
+      const classId = classDoc._id;
+
+      const classInitial = classDoc.classInitial;
+
+      // Count registered students
+      const registeredCount = await studentModel.countDocuments({
+        classId: classId, // No need to call toString() here
+        status: "REGISTERED",
+      });
+
+      // Count unregistered students
+      const unregisteredCount = await studentModel.countDocuments({
+        classId: classId, // No need to call toString() here
+        status: "NOT REGISTERED",
+      });
+
+      // Populate stats
+      stats.registered[classInitial] = registeredCount;
+      stats.unregistered[classInitial] = unregisteredCount;
+    }
+
+    // Send response
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error("Error fetching class registration stats:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

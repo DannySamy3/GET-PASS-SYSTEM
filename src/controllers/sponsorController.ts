@@ -201,3 +201,30 @@ export const getAllSponsors = async (
     });
   }
 };
+
+export const getSponsorById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const sponsor = await sponsorModel.findById(id);
+    if (!sponsor) {
+      res.status(404).json({
+        status: "fail",
+        message: "Sponsor not found",
+      });
+      return;
+    }
+    res.status(200).json({
+      status: "success",
+      data: sponsor,
+    });
+  } catch (error) {
+    console.error("Error fetching sponsor by ID:", error);
+    res.status(500).json({
+      status: "fail",
+      message: "Internal server error",
+    });
+  }
+};

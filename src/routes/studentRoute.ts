@@ -5,6 +5,7 @@ import {
   getStudentById,
   updateStudentSponsor,
   getRegisteredStudents,
+  getClassRegistrationStats,
 } from "../controllers/studentsController";
 
 const router = Router();
@@ -13,6 +14,7 @@ const router = Router();
 router.route("/").get(getStudents).post(createStudent);
 
 router.route("/registered").get(getRegisteredStudents);
+router.route("/stats").get(getClassRegistrationStats);
 
 // Fetch a student by their ID
 router.route("/:id").get(getStudentById).patch(updateStudentSponsor); // Use :id instead of /id
