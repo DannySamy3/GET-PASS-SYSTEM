@@ -6,6 +6,7 @@ import {
   updateStudentSponsor,
   getRegisteredStudents,
   getClassRegistrationStats,
+  editStudent,
 } from "../controllers/studentsController";
 
 const router = Router();
@@ -17,6 +18,6 @@ router.route("/registered").get(getRegisteredStudents);
 router.route("/stats").get(getClassRegistrationStats);
 
 // Fetch a student by their ID
-router.route("/:id").get(getStudentById).patch(updateStudentSponsor); // Use :id instead of /id
+router.route("/:id").get(getStudentById).patch(editStudent); // Use :id instead of /id
 
 export default router;

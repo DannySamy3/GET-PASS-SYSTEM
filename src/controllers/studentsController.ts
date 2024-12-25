@@ -326,3 +326,44 @@ export const getClassRegistrationStats = async (
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const editStudent = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params; // Use 'id' instead of '_id' to match the route parameter
+    const updates = req.body;
+
+    // Validate studentId
+    if (!id) {
+      res.status(400).json({
+        message: "Student ID is required.",
+      });
+      return;
+    }
+
+    // Find and update student
+    const updatedStudent = await studentModel.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedStudent) {
+      res.status(404).json({
+        message: "Student not found.",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      message: "Student updated successfully.",
+      student: updatedStudent,
+    });
+  } catch (error) {
+    console.error("Error updating student:", error);
+    res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+};
