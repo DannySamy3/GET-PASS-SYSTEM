@@ -67,6 +67,24 @@ export const getAllClassInitials = async (
     });
   }
 };
+export const getAllClasses = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const classes = await classModel.find();
+    res.status(200).json({
+      success: true,
+      classes,
+    });
+  } catch (error) {
+    console.error("Error fetching classes", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch classes",
+    });
+  }
+};
 
 export const getClassById = async (
   req: Request,

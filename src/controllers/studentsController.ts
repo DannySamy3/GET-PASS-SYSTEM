@@ -83,8 +83,6 @@ export const createStudent = async (
     enrollmentYear,
     sponsorId,
     gender,
-
-    image = "",
   } = req.body;
 
   if (
@@ -125,6 +123,8 @@ export const createStudent = async (
       return;
     }
 
+  
+
     const status =
       getSponsor.name === "Metfund" ? "REGISTERED" : "NOT REGISTERED";
 
@@ -140,7 +140,6 @@ export const createStudent = async (
       status,
       gender,
 
-      image,
       enrollmentYear,
     });
 
