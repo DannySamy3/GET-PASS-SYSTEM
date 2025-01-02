@@ -57,8 +57,9 @@ export const deleteSponsor = async (
   }
 
   try {
-    const sponsor = await sponsorModel.findById(id);
-    if (!sponsor) {
+    // Check if the sponsor exists
+    const sponsorToDelete = await sponsorModel.findById(id);
+    if (!sponsorToDelete) {
       res.status(404).json({
         status: "fail",
         message: "Sponsor not found",
@@ -66,52 +67,37 @@ export const deleteSponsor = async (
       return;
     }
 
-    const privateSponsor = await sponsorModel.findOne({
-      name: "Private",
-    });
-    if (!privateSponsor) {
-      res.status(404).json({
-        status: "fail",
-        message: "Private sponsor not found",
-      });
-      return;
-    }
-
-    const updatedStudents = await studentModel.updateMany(
-      { sponsor: id },
-      { $set: { sponsor: privateSponsor._id } }
-    );
-
-    // // Check if any students were updated
-    // if (updatedStudents.modifiedCount === 0) {
+    // Prevent deleting the "Private" sponsor
+    // if (sponsorToDelete.name === "Private") {
     //   res.status(400).json({
     //     status: "fail",
-    //     message: "No students found with the specified sponsor",
+    //     message: 'The "Private" sponsor cannot be deleted',
     //   });
     //   return;
     // }
 
-    const deletedSponsor = await sponsorModel.findByIdAndDelete(id);
-
-    if (!deletedSponsor) {
-      res.status(404).json({
+    // Check if students are linked to the sponsor
+    const linkedStudents = await studentModel.find({ sponsor: id });
+    if (linkedStudents.length > 0) {
+      res.status(400).json({
         status: "fail",
-        message: "Sponsor not found",
+        message: `Cannot delete sponsor. ${linkedStudents.length} student(s) are linked to this sponsor.`,
       });
       return;
     }
 
+    // Delete the sponsor
+    const deletedSponsor = await sponsorModel.findByIdAndDelete(id);
+
     res.status(200).json({
       status: "success",
-      message:
-        "Sponsor deleted and students updated with private sponsor successfully",
+      message: "Sponsor deleted successfully",
       data: {
         sponsor: deletedSponsor,
-        updatedStudents: updatedStudents.modifiedCount,
       },
     });
   } catch (error) {
-    console.error("Error deleting sponsor and updating students:", error);
+    console.error("Error deleting sponsor:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Internal server error";
     res.status(500).json({
@@ -162,7 +148,6 @@ export const editSponsor = async (
       },
     });
   } catch (error) {
-    console.error("Error updating sponsor:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Internal server error";
     res.status(500).json({
