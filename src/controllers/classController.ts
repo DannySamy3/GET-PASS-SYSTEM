@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import studentModel from "../models/studentModel"; // Import the Student model
 import classModel from "../models/classModel";
 
 export const createClass = async (
@@ -113,5 +114,83 @@ export const getClassById = async (
       status: "fail",
       message: errorMessage,
     });
+  }
+};
+
+export const updateClass = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name, duration, classInitial } = req.body;
+
+    // Validate input fields
+    if (!name && !duration && !classInitial) {
+      res.status(400).json({ message: "No fields provided to update" });
+      return;
+    }
+
+    // Fetch the current class
+    const existingClass = await classModel.findById(id);
+    if (!existingClass) {
+      res.status(404).json({ message: "Class not found" });
+      return;
+    }
+
+    // Check if input fields are the same as existing values
+    if (
+      name === existingClass.name &&
+      duration === existingClass.duration &&
+      classInitial === existingClass.classInitial
+    ) {
+      res
+        .status(400)
+        .json({ message: "No changes detected in the input fields" });
+      return;
+    }
+
+    // Update the class
+    const updatedClass = await classModel.findByIdAndUpdate(
+      id,
+      { name, duration, classInitial },
+      { new: true, runValidators: true }
+    );
+
+    res
+      .status(200)
+      .json({ message: "Class updated successfully", class: updatedClass });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update class", error });
+  }
+};
+
+export const deleteClass = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Check if any students are linked to the class
+    const linkedStudents = await studentModel.find({ classId: id });
+    if (linkedStudents.length > 0) {
+      res.status(400).json({
+        message:
+          "Cannot delete class. There are students linked to this class.",
+      });
+      return;
+    }
+
+    // Proceed to delete the class if no students are linked
+    const deletedClass = await classModel.findByIdAndDelete(id);
+    if (!deletedClass) {
+      res.status(404).json({ message: "Class not found" });
+      return;
+    }
+
+    res.status(200).json({ message: "Class deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete class", error });
   }
 };
