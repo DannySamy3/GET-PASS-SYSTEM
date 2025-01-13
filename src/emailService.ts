@@ -1,27 +1,22 @@
 import nodemailer from "nodemailer";
-import { config } from "dotenv";
-import crypto from "crypto";
 import { Request, Response } from "express";
 
-config({ path: "./.env" });
-
-// Create a Nodemailer transporter
+// Set up the transporter for Gmail using environment variables
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT),
-  secure: false, // Use TLS (set to true if you're using SSL)
+  port: parseInt(process.env.EMAIL_PORT || "587"), // Convert port to integer
+  secure: false, // false for TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
-// Function to generate a random 6-digit verification code
-export const generateVerificationCode = (): string => {
-  return crypto.randomInt(100000, 999999).toString();
+const generateVerificationCode = (): string => {
+  // Generates a random 6-digit code
+  return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Function to send verification code email
 export const sendVerificationCode = async (
   req: Request,
   res: Response
@@ -36,14 +31,14 @@ export const sendVerificationCode = async (
   const verificationCode = generateVerificationCode();
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: "Your Verification Code",
-    text: `Your verification code is: ${verificationCode}`,
+    from: process.env.EMAIL_FROM, // From email address
+    to: email, // Recipient's email
+    subject: "Your Verification Code", // Email subject
+    text: `Your verification code is: ${verificationCode}`, // Email body
   };
 
   try {
-    // Send email
+    // Send email using the transporter
     await transporter.sendMail(mailOptions);
     console.log(`Verification code sent to ${email}`);
     res.status(200).json({ message: "Verification code sent successfully" });
