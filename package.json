@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "server": "node dist/server.js",
-    "build": "npm run build",
     "dev": "nodemon src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
     "seed": "ts-node seed.ts"
   },
   "keywords": [],
