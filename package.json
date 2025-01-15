@@ -4,10 +4,10 @@
   "main": "index.js",
   "scripts": {
     "server": "node dist/server.js",
-    "build": "npm run build",
+    "build": "tsc",
     "dev": "nodemon src/server.ts",
     "seed": "ts-node seed.ts",
-    "start": " nodemon src/server.ts"
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "",
