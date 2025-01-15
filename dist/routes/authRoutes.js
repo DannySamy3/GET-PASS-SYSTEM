@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const emailService_1 = require("../emailService");
+const router = (0, express_1.Router)();
+router.route("/").post(emailService_1.sendVerificationCode);
+router.route("/verifyToken").post(emailService_1.verifyToken);
+router.route("/resendToken").post(emailService_1.resendVerificationCode);
+router.route("/registerUser").post(emailService_1.finalizeRegistration);
+exports.default = router;
