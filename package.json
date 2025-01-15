@@ -6,8 +6,7 @@
     "server": "node dist/server.js",
     "build": "npm run build",
     "dev": "nodemon src/server.ts",
-    "seed": "ts-node seed.ts",
-    "start": "node dist/server.js"
+    "seed": "ts-node seed.ts"
   },
   "keywords": [],
   "author": "",
