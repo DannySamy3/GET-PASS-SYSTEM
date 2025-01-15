@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/server.ts",
-    "build": "npm run build",
-    "start": "node dist/server.js",
-    "seed": "ts-node seed.ts"
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "ts-node src/seed.ts"
   },
   "keywords": [],
   "author": "",
