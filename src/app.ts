@@ -21,6 +21,6 @@ app.use("/getPass/students", studentRoute);
 app.use("/getPass/classes", classRoutes);
 app.use("/getPass/sponsors", sponsorRoute);
 app.use("/getPass/scans", scanRoute);
-app.use("/getPass/send-verification-code", authRoute);
+app.use("/getPass/auth", authRoute);
 
 export default app;

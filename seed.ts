@@ -5,6 +5,7 @@ import classModel from "./src/models/classModel";
 import counterModel from "./src/models/counterModel";
 import sponsorModel from "./src/models/sponsorModel"; // Import the Sponsor model
 import { faker } from "@faker-js/faker";
+import userModal from "./src/models/userModal";
 
 config({ path: "./.env" });
 
@@ -40,6 +41,7 @@ mongoose.connect(DB).then(async () => {
   await studentModel.deleteMany({});
   await counterModel.deleteMany({});
   await sponsorModel.deleteMany({});
+  await userModal.deleteMany({});
 
   const createdSponsors = await sponsorModel.insertMany(sponsors);
 
