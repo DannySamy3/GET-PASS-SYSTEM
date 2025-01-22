@@ -16,7 +16,7 @@ export const loginUser = async (req: Request, res: Response): Promise<any> => {
   ) {
     return res
       .status(400)
-      .json({ message: "Email and password are required and must be strings" });
+      .json({ message: "Email and password are required " });
   }
 
   try {
