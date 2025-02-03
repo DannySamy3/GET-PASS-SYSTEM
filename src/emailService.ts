@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { Request, Response } from "express";
 import dotenv from "dotenv";
-import User from "./models/userModal"; // Import your User model
+import userModal from "./models/userModal"; // Import your User model
 import bcrypt from "bcrypt";
 
 dotenv.config();
@@ -37,7 +37,7 @@ export const sendVerificationCode = async (
 
   try {
     // Check if the user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await userModal.findOne({ email });
 
     if (existingUser) {
       // Check if the user is fully registered
@@ -67,7 +67,7 @@ export const sendVerificationCode = async (
     }
 
     // If the user does not exist, create a new user and send verification code
-    const newUser = new User({
+    const newUser = new userModal({
       email,
       verificationCode,
       isVerified: false, // Initially not verified
@@ -105,7 +105,7 @@ export const verifyToken = async (
 
   try {
     // Find the user by email
-    const user = await User.findOne({ email });
+    const user = await userModal.findOne({ email });
 
     // Check if the user exists
     if (!user) {
@@ -162,7 +162,7 @@ export const finalizeRegistration = async (
 
   try {
     // Find the user by email and check if they exist
-    const user = await User.findOne({ email });
+    const user = await userModal.findOne({ email });
 
     if (!user) {
       return res.status(404).json({ message: "User not found." });
@@ -214,7 +214,7 @@ export const resendVerificationCode = async (
 
   try {
     // Check if the user exists
-    const user = await User.findOne({ email });
+    const user = await userModal.findOne({ email });
 
     if (!user) {
       return res.status(404).json({ message: "User not found." });

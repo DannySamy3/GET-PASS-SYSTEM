@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import User from "../models/userModal"; // Import your user model
+import userModal from "../models/userModal"; // Import your user model
 
 // Controller to register user after verification
 export const registerUser = async (
@@ -16,16 +16,16 @@ export const registerUser = async (
 
   try {
     // Find the user by email
-    const existingUser = await User.findOne({ email });
+    const existingUser = await userModal.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({ message: "Email already in use" });
     }
 
     // Find the verification code sent to the user (You should have stored this in the user's document)
-    const storedVerificationCode = await User.findOne({ email }).select(
-      "verificationCode isVerified"
-    );
+    const storedVerificationCode = await userModal
+      .findOne({ email })
+      .select("verificationCode isVerified");
 
     if (!storedVerificationCode) {
       return res
@@ -47,7 +47,7 @@ export const registerUser = async (
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create a new user document
-    const newUser = new User({
+    const newUser = new userModal({
       name,
       email,
       password: hashedPassword,

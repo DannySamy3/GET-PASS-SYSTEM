@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../src/models/userModal"; // Import your user model
+import userModal from "../src/models/userModal"; // Import your user model
 
 // Controller to authenticate user (login)
 export const loginUser = async (req: Request, res: Response): Promise<any> => {
@@ -21,7 +21,7 @@ export const loginUser = async (req: Request, res: Response): Promise<any> => {
 
   try {
     // Find the user by email (this returns the full user document)
-    const user = await User.findOne({ email });
+    const user = await userModal.findOne({ email });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
