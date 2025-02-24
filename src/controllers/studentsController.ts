@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import studentModel from "../models/studentModel";
 import classModel, { IClass } from "../models/classModel";
 import sponsorModel from "../models/sponsorModel";
-import { upload, uploadToGCS } from "../../src/gcpStorage"; // Import storage config
+import { upload, uploadToGCS } from "../gcpStorage"; // Corrected import path
 
 interface ClassStats {
   registered: { [key: string]: number };
