@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import userModal from "../src/models/userModal"; // Import your user model
+import userModal from "./models/userModal"; // Corrected import path
 
 // Controller to authenticate user (login)
 export const loginUser = async (req: Request, res: Response): Promise<any> => {

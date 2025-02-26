@@ -66,7 +66,7 @@ const studentSchema: Schema<IStudent> = new Schema(
       required: true,
     },
     enrollmentYear: { type: Number, required: true },
-    image: { type: String },
+    image: { type: String, required: true },
     regNo: { type: String, unique: true, required: false },
   },
   { timestamps: true }

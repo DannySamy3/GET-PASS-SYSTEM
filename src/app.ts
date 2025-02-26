@@ -7,6 +7,8 @@ import authRoute from "./routes/authRoutes";
 import classRoutes from "./routes/classRoutes";
 import cors from "cors";
 import dotenv from "dotenv";
+import studentController from "./controllers/studentController";
+import errorHandler from "./middleware/errorHandler";
 
 dotenv.config();
 const app = express();
@@ -22,5 +24,18 @@ app.use("/getPass/classes", classRoutes);
 app.use("/getPass/sponsors", sponsorRoute);
 app.use("/getPass/scans", scanRoute);
 app.use("/getPass/auth", authRoute);
+app.use("/students", studentController);
+
+// Add error handler middleware after all routes
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    errorHandler(err, req, res, next);
+  }
+);
 
 export default app;
