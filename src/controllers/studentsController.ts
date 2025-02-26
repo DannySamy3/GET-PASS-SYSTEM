@@ -137,7 +137,111 @@ export const getStudents = async (req: Request, res: Response) => {
 //         sponsor: sponsorId,
 //         status,
 //         gender,
-//         photo: imageUrl,
+//         image: imageUrl,
+//         enrollmentYear,
+//       });
+
+//       const savedStudent = await student.save();
+
+//       res.status(201).json({
+//         status: "success",
+//         data: { student: savedStudent },
+//       });
+//     } catch (error) {
+//       console.error("Error while creating student:", error);
+//       const errorMessage =
+//         error instanceof Error ? error.message : "Internal server error";
+//       res.status(500).json({
+//         status: "fail",
+//         message: errorMessage,
+//       });
+//     }
+//   });
+// };
+
+// export const createStudent = async (req: Request, res: Response) => {
+//   upload.single("image")(req, res, async function (err: any) {
+//     // Log after the upload is done
+//     console.log(req.body); // To see if the "image" field exists
+//     console.log(req.file); // To confirm the file is being sent
+
+//     if (err) {
+//       return res
+//         .status(400)
+//         .json({ message: "Image upload failed", error: err });
+//     }
+
+//     const {
+//       firstName,
+//       secondName,
+//       lastName,
+//       email,
+//       phoneNumber,
+//       nationality,
+//       classId,
+//       enrollmentYear,
+//       sponsorId,
+//       gender,
+//     } = req.body;
+
+//     if (
+//       !firstName ||
+//       !secondName ||
+//       !lastName ||
+//       !email ||
+//       !phoneNumber ||
+//       !nationality ||
+//       !classId ||
+//       !enrollmentYear ||
+//       !sponsorId ||
+//       !gender
+//     ) {
+//       res.status(400).json({
+//         status: "fail",
+//         message: "Missing input fields",
+//       });
+//       return;
+//     }
+
+//     try {
+//       let imageUrl = req.body.image || "";
+//       if (req.file) {
+//         imageUrl = (await uploadToGCS(req.file)) as string;
+//       }
+
+//       const getSelectedClass = await classModel.findById(classId);
+//       if (!getSelectedClass) {
+//         res.status(400).json({
+//           status: "fail",
+//           message: "The selected class doesn't exist",
+//         });
+//         return;
+//       }
+
+//       const getSponsor = await sponsorModel.findById(sponsorId);
+//       if (!getSponsor) {
+//         res.status(400).json({
+//           status: "fail",
+//           message: "The selected sponsor doesn't exist",
+//         });
+//         return;
+//       }
+
+//       const status =
+//         getSponsor.name === "Metfund" ? "REGISTERED" : "NOT REGISTERED";
+
+//       const student = new studentModel({
+//         firstName,
+//         secondName,
+//         lastName,
+//         email,
+//         phoneNumber,
+//         nationality,
+//         classId,
+//         sponsor: sponsorId,
+//         status,
+//         gender,
+//         image: imageUrl,
 //         enrollmentYear,
 //       });
 
@@ -161,9 +265,8 @@ export const getStudents = async (req: Request, res: Response) => {
 
 export const createStudent = async (req: Request, res: Response) => {
   upload.single("image")(req, res, async function (err: any) {
-    // Log after the upload is done
-    console.log(req.body); // To see if the "image" field exists
-    console.log(req.file); // To confirm the file is being sent
+    console.log(req.body); // Check input fields
+    console.log(req.file); // Check the file being uploaded
 
     if (err) {
       return res
@@ -196,35 +299,33 @@ export const createStudent = async (req: Request, res: Response) => {
       !sponsorId ||
       !gender
     ) {
-      res.status(400).json({
+      return res.status(400).json({
         status: "fail",
         message: "Missing input fields",
       });
-      return;
     }
 
     try {
-      let imageUrl = req.body.image || "";
+      let imageFilePath;
       if (req.file) {
-        imageUrl = (await uploadToGCS(req.file)) as string;
+        // If file is uploaded, use your function to upload it to GCS
+        imageFilePath = await uploadToGCS(req.file); // Assuming this function returns the file path or URL of the uploaded image
       }
 
       const getSelectedClass = await classModel.findById(classId);
       if (!getSelectedClass) {
-        res.status(400).json({
+        return res.status(400).json({
           status: "fail",
           message: "The selected class doesn't exist",
         });
-        return;
       }
 
       const getSponsor = await sponsorModel.findById(sponsorId);
       if (!getSponsor) {
-        res.status(400).json({
+        return res.status(400).json({
           status: "fail",
           message: "The selected sponsor doesn't exist",
         });
-        return;
       }
 
       const status =
@@ -241,7 +342,7 @@ export const createStudent = async (req: Request, res: Response) => {
         sponsor: sponsorId,
         status,
         gender,
-        photo: imageUrl,
+        image: imageFilePath, // Store the file path returned by uploadToGCS
         enrollmentYear,
       });
 
@@ -255,7 +356,7 @@ export const createStudent = async (req: Request, res: Response) => {
       console.error("Error while creating student:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Internal server error";
-      res.status(500).json({
+      return res.status(500).json({
         status: "fail",
         message: errorMessage,
       });
