@@ -51,7 +51,8 @@ export const uploadToGCS = async (file: any) => {
           resolve(publicUrl); // Return the URL of the uploaded file
         })
         .on("error", (err: any) => {
-          reject(err); // Reject the promise if an error occurs during the upload
+          console.error("GCS Upload Error:", err);
+          reject(new Error(`Failed to upload to GCS: ${err.message}`));
         })
         .end(file.buffer); // Upload the file's buffer to GCS
     });
