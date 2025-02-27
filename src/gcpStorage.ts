@@ -16,7 +16,7 @@ const multerStorage = multer.memoryStorage();
 export const upload = multer({
   storage: multerStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // Limit the file size to 10MB, can be adjusted
+    fileSize: 50 * 1024 * 1024, // Limit the file size to 10MB, can be adjusted
   },
   fileFilter: (
     _req: Express.Request,
@@ -40,7 +40,7 @@ export const uploadToGCS = async (file: any) => {
 
     const blob = bucket.file(fileName); // Create the file object in the bucket
     const blobStream = blob.createWriteStream({
-      resumable: false, // Non-resumable upload, typically sufficient for small files
+      resumable: true, // Non-resumable upload, typically sufficient for small files
       contentType: file.mimetype, // Ensure the correct MIME type is set
     });
 

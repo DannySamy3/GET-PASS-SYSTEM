@@ -9,7 +9,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import studentController from "./controllers/studentController";
 import errorHandler from "./middleware/errorHandler";
-
+import bodyParser from "body-parser";
 dotenv.config();
 const app = express();
 app.use(express.json());
@@ -18,7 +18,8 @@ app.use(cors());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
-
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use("/getPass/students", studentRoute);
 app.use("/getPass/classes", classRoutes);
 app.use("/getPass/sponsors", sponsorRoute);
