@@ -19,8 +19,8 @@ app.use(cors());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
-app.use(bodyParser.json({ limit: "80mb" }));
-app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+app.use(bodyParser.json({ limit: "100mb" }));
+app.use(bodyParser.urlencoded({ limit: "100mb", extended: true }));
 app.use("/getPass/students", studentRoute);
 app.use("/getPass/classes", classRoutes);
 app.use("/getPass/sponsors", sponsorRoute);
