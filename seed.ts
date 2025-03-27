@@ -28,11 +28,7 @@ const universityCourses = [
   { name: "Environmental Science", duration: 3, classInitial: "ES" },
 ];
 
-const sponsors = [
-  { name: "HESLB", Amount: 1000 },
-  { name: "Metfund", Amount: 2000 },
-  { name: "Private", Amount: 3000 },
-];
+const sponsors = [{ name: "HESLB" }, { name: "Metfund" }, { name: "Private" }];
 
 mongoose.connect(DB).then(async () => {
   console.log("DB connection successful!");
@@ -41,7 +37,7 @@ mongoose.connect(DB).then(async () => {
   await studentModel.deleteMany({});
   await counterModel.deleteMany({});
   await sponsorModel.deleteMany({});
-  await userModal.deleteMany({});
+  // await userModal.deleteMany({});
 
   const createdSponsors = await sponsorModel.insertMany(sponsors);
 
@@ -51,7 +47,7 @@ mongoose.connect(DB).then(async () => {
   await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
 
   const students = await Promise.all(
-    Array.from({ length: 10 }, async () => {
+    Array.from({ length: 100 }, async () => {
       const randomClass = classes[Math.floor(Math.random() * classes.length)];
       const randomSponsor =
         createdSponsors[Math.floor(Math.random() * createdSponsors.length)];
