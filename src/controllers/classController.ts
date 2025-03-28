@@ -7,16 +7,21 @@ export const createClass = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, duration, classInitial } = req.body;
-    if (!name || !duration || !classInitial) {
+    const { name, duration, classInitial, fee } = req.body;
+    if (!name || !duration || !classInitial || !fee) {
       res.status(400).json({
         status: "fail",
-        message: "Name, duration, or classInitial is missing",
+        message: "Name, duration, classInitial, or fee is missing",
       });
       return;
     }
 
-    const newClass = await classModel.create({ name, duration, classInitial });
+    const newClass = await classModel.create({
+      name,
+      duration,
+      classInitial,
+      fee,
+    });
 
     res.status(201).json({
       status: "success",
@@ -123,18 +128,24 @@ export const updateClass = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, duration, classInitial } = req.body;
+    const { name, duration, classInitial, fee } = req.body;
 
     // Validate input fields
-    if (!name && !duration && !classInitial) {
-      res.status(400).json({ message: "No fields provided to update" });
+    if (!name && !duration && !classInitial && !fee) {
+      res.status(400).json({
+        status: "fail",
+        message: "No fields provided to update",
+      });
       return;
     }
 
     // Fetch the current class
     const existingClass = await classModel.findById(id);
     if (!existingClass) {
-      res.status(404).json({ message: "Class not found" });
+      res.status(404).json({
+        status: "fail",
+        message: "Class not found",
+      });
       return;
     }
 
@@ -142,26 +153,62 @@ export const updateClass = async (
     if (
       name === existingClass.name &&
       duration === existingClass.duration &&
-      classInitial === existingClass.classInitial
+      classInitial === existingClass.classInitial &&
+      fee === existingClass.fee
     ) {
-      res
-        .status(400)
-        .json({ message: "No changes detected in the input fields" });
+      res.status(400).json({
+        status: "fail",
+        message: "No changes detected in the input fields",
+      });
       return;
     }
 
     // Update the class
     const updatedClass = await classModel.findByIdAndUpdate(
       id,
-      { name, duration, classInitial },
+      { name, duration, classInitial, fee },
       { new: true, runValidators: true }
     );
 
-    res
-      .status(200)
-      .json({ message: "Class updated successfully", class: updatedClass });
+    res.status(200).json({
+      status: "success",
+      message: "Class updated successfully",
+      data: { class: updatedClass },
+    });
   } catch (error) {
-    res.status(500).json({ message: "Failed to update class", error });
+    if (error instanceof Error) {
+      // Handle specific errors
+      if (error.name === "ValidationError") {
+        res.status(400).json({
+          status: "fail",
+          message: error.message,
+        });
+        return;
+      }
+
+      // Handle duplicate key error for classInitial
+      if (error.name === "MongoError" && (error as any).code === 11000) {
+        res.status(400).json({
+          status: "fail",
+          message: "A class with this initial already exists",
+        });
+        return;
+      }
+
+      // Handle other known errors
+      res.status(500).json({
+        status: "fail",
+        message: error.message,
+      });
+      return;
+    } else {
+      // Handle unknown errors
+      res.status(500).json({
+        status: "fail",
+        message: "Internal server error",
+      });
+      return;
+    }
   }
 };
 

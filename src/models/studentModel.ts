@@ -32,6 +32,7 @@ export interface IStudent extends Document {
   enrollmentYear: number;
   image: string;
   regNo: string;
+  sessionId: Schema.Types.ObjectId; // Reference to Session model
 }
 
 // Student Schema
@@ -52,7 +53,7 @@ const studentSchema: Schema<IStudent> = new Schema(
     },
     sponsor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "sponsorModel", // Reference to Sponsor model
+      ref: "Sponsor", // Reference to Sponsor model
       required: true,
     },
     status: {
@@ -68,6 +69,11 @@ const studentSchema: Schema<IStudent> = new Schema(
     enrollmentYear: { type: Number, required: true },
     image: { type: String, required: true },
     regNo: { type: String, unique: true, required: false },
+    sessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Session", // Reference to Session model
+      required: true,
+    },
   },
   { timestamps: true }
 );
