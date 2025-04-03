@@ -8,14 +8,24 @@ export const createSession = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { sessionName, startDate, endDate, amount, activeStatus, grace } =
-      req.body;
+    const { sessionName, startDate, endDate, amount, activeStatus } = req.body;
+
+    console.log(req.body);
 
     // Validate required fields
     if (!sessionName || !startDate || !endDate || !amount) {
       res.status(400).json({
         status: "fail",
         message: "Missing required fields",
+      });
+      return;
+    }
+
+    // Validate amount
+    if (amount <= 0) {
+      res.status(400).json({
+        status: "fail",
+        message: "Amount must be greater than 0",
       });
       return;
     }
@@ -31,14 +41,18 @@ export const createSession = async (
       return;
     }
 
+    // If setting activeStatus to true, set all other sessions to false
+    if (activeStatus === true) {
+      await sessionModel.updateMany({}, { activeStatus: false });
+    }
+
     // Create new session
     const session = new sessionModel({
       sessionName,
       startDate: start,
       endDate: end,
       amount,
-      activeStatus: activeStatus ?? true,
-      grace: grace ?? false,
+      ...(typeof activeStatus === "boolean" && { activeStatus }),
     });
 
     const savedSession = await session.save();
@@ -122,6 +136,15 @@ export const updateSession = async (
       return;
     }
 
+    // Validate amount if provided
+    if (amount !== undefined && amount <= 0) {
+      res.status(400).json({
+        status: "fail",
+        message: "Amount must be greater than 0",
+      });
+      return;
+    }
+
     // Validate dates if provided
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -135,6 +158,16 @@ export const updateSession = async (
       }
     }
 
+    // If specifically setting activeStatus to true, set all other sessions to false
+    if (activeStatus === true) {
+      // First, update all other sessions to false
+      await sessionModel.updateMany(
+        { _id: { $ne: req.params.id } },
+        { activeStatus: false }
+      );
+    }
+
+    // Then update the target session
     const session = await sessionModel.findByIdAndUpdate(
       req.params.id,
       {

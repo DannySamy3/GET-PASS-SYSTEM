@@ -7,6 +7,7 @@ import authRoute from "./routes/authRoutes";
 import classRoutes from "./routes/classRoutes";
 import imageRoutes from "./routes/imageRoutes";
 import sessionRoutes from "./routes/sessionRoutes";
+import paymentRoutes from "./routes/paymentRoutes";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -36,6 +37,7 @@ app.use("/getPass/scans", scanRoute);
 app.use("/getPass/auth", authRoute);
 app.use("/getPass/images", imageRoutes);
 app.use("/getPass/sessions", sessionRoutes);
+app.use("/getPass/payments", paymentRoutes);
 app.use("/students", studentRoute);
 
 // Add error handler middleware after all routes

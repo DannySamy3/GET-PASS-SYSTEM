@@ -33,7 +33,7 @@ const sessionSchema: Schema<ISession> = new Schema(
     },
     activeStatus: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     grace: {
       type: Boolean,
@@ -49,6 +49,25 @@ const sessionSchema: Schema<ISession> = new Schema(
 sessionSchema.pre("save", function (next) {
   if (this.endDate <= this.startDate) {
     next(new Error("End date must be after start date"));
+  }
+  next();
+});
+
+// Add validation to ensure only one session can be active at a time
+sessionSchema.pre("save", async function (next) {
+  if (this.activeStatus) {
+    const activeSession = await (
+      this.constructor as typeof sessionModel
+    ).findOne({
+      activeStatus: true,
+      _id: { $ne: this._id }, // Exclude current document when updating
+    });
+
+    if (activeSession) {
+      // Set the previous active session to inactive
+      activeSession.activeStatus = false;
+      await activeSession.save();
+    }
   }
   next();
 });

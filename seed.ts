@@ -82,6 +82,7 @@ mongoose.connect(DB).then(async () => {
   await sponsorModel.deleteMany({});
   await sessionModel.deleteMany({});
   await paymentModel.deleteMany({});
+  await sessionModel.deleteMany({});
 
   // Create a session
   const currentDate = new Date();
