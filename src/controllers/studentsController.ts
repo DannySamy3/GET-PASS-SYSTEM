@@ -175,6 +175,7 @@ export const createStudent = async (
         classId,
         sponsor: sponsorId,
         registrationStatus,
+        status: registrationStatus,
         gender,
         image: imageFilePath,
         enrollmentYear,
