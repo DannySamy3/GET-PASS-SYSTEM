@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import sessionModel from "../models/sessionModel";
+import studentModel from "../models/studentModel";
 import mongoose from "mongoose";
 
 export const createSession = async (
@@ -217,8 +218,13 @@ export const updateSession = async (
       }
     }
 
+    // Get current session to check active status changes
+    const currentSession = await sessionModel.findById(req.params.id);
+    const wasActive = currentSession?.activeStatus;
+    const willBeActive = activeStatus === true;
+
     // If specifically setting activeStatus to true, set all other sessions to false
-    if (activeStatus === true) {
+    if (willBeActive) {
       // First, update all other sessions to false
       await sessionModel.updateMany(
         { _id: { $ne: req.params.id } },
@@ -226,8 +232,6 @@ export const updateSession = async (
       );
     }
 
-    // Get current session to check grace status
-    const currentSession = await sessionModel.findById(req.params.id);
     const updateData: any = {
       ...(sessionName && { sessionName }),
       ...(startDate && { startDate: new Date(startDate) }),
@@ -284,6 +288,11 @@ export const updateSession = async (
         message: "Session not found",
       });
       return;
+    }
+
+    // If the session's active status changed to true, update all students' session references
+    if (!wasActive && willBeActive) {
+      await studentModel.updateMany({}, { sessionId: session._id });
     }
 
     res.status(200).json({

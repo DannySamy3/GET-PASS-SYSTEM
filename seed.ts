@@ -105,7 +105,7 @@ mongoose.connect(DB).then(async () => {
   await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
 
   const students = await Promise.all(
-    Array.from({ length: 100 }, async () => {
+    Array.from({ length: 10 }, async () => {
       const randomClass = classes[Math.floor(Math.random() * classes.length)];
       const randomSponsor =
         createdSponsors[Math.floor(Math.random() * createdSponsors.length)];

@@ -86,8 +86,7 @@ export const createStudent = async (
       enrollmentYear,
       sponsorId,
       gender,
-      submittedAmount,
-      sessionId,
+      fundedAmount,
     } = req.body;
 
     // Validate ObjectId fields
@@ -105,13 +104,6 @@ export const createStudent = async (
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-      return res.status(400).json({
-        status: "fail",
-        message: "Invalid session ID format",
-      });
-    }
-
     if (
       !firstName ||
       !secondName ||
@@ -122,8 +114,7 @@ export const createStudent = async (
       !classId ||
       !enrollmentYear ||
       !sponsorId ||
-      !gender ||
-      !sessionId
+      !gender
     ) {
       return res.status(400).json({
         status: "fail",
@@ -137,10 +128,13 @@ export const createStudent = async (
         imageFilePath = await uploadToGCS(req.file);
       }
 
-      // Get current session details
-      const currentSession = await sessionModel.findById(sessionId);
+      // Get current active session
+      const currentSession = await sessionModel.findOne({ activeStatus: true });
       if (!currentSession) {
-        return res.status(404).json({ message: "Session not found" });
+        return res.status(404).json({
+          status: "fail",
+          message: "No active session found",
+        });
       }
 
       const getSelectedClass = await classModel.findById(classId);
@@ -164,15 +158,11 @@ export const createStudent = async (
       if (getSponsor.name === "Metfund") {
         registrationStatus = "REGISTERED";
       } else {
-        // For other sponsors, check grace period and amount
-        if (currentSession.grace) {
-          registrationStatus =
-            submittedAmount < currentSession.amount
-              ? "NOT REGISTERED"
-              : "REGISTERED";
-        } else {
-          registrationStatus = "REGISTERED";
-        }
+        // For other sponsors, check if submitted amount meets session amount
+        registrationStatus =
+          fundedAmount < currentSession.amount
+            ? "NOT REGISTERED"
+            : "REGISTERED";
       }
 
       const student = new studentModel({
@@ -188,8 +178,8 @@ export const createStudent = async (
         gender,
         image: imageFilePath,
         enrollmentYear,
-        submittedAmount,
-        sessionId,
+        fundedAmount,
+        sessionId: currentSession._id,
       });
 
       const savedStudent = await student.save();
@@ -197,7 +187,7 @@ export const createStudent = async (
       // If student is registered, create payment record
       if (registrationStatus === "REGISTERED") {
         await paymentModel.create({
-          amount: submittedAmount,
+          amount: fundedAmount,
           sessionId: currentSession._id,
           studentId: savedStudent._id,
         });

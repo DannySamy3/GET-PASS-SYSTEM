@@ -33,6 +33,7 @@ export interface IStudent extends Document {
   image: string;
   regNo: string;
   sessionId: Schema.Types.ObjectId; // Reference to Session model
+  fundedAmount: number;
 }
 
 // Student Schema
@@ -42,7 +43,7 @@ const studentSchema: Schema<IStudent> = new Schema(
     firstName: { type: String, required: true },
     secondName: { type: String, required: true },
     lastName: { type: String, required: true },
-    email: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
     phoneNumber: { type: String, required: true },
 
     nationality: { type: String, required: true },
@@ -74,6 +75,7 @@ const studentSchema: Schema<IStudent> = new Schema(
       ref: "Session", // Reference to Session model
       required: true,
     },
+    fundedAmount: { type: Number, required: true },
   },
   { timestamps: true }
 );
