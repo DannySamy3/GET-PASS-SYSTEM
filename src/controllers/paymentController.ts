@@ -121,8 +121,21 @@ export const getPaymentsByStudent = async (
   res: Response
 ): Promise<void> => {
   try {
+    const { studentId, sessionId } = req.params;
+
+    if (!studentId || !sessionId) {
+      res.status(400).json({
+        status: "fail",
+        message: "Student ID and Session ID are required",
+      });
+      return;
+    }
+
     const payments = await paymentModel
-      .find({ studentId: req.params.studentId })
+      .find({
+        studentId,
+        sessionId,
+      })
       .populate("sessionId")
       .populate("studentId");
 
