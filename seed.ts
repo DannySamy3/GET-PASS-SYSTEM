@@ -93,6 +93,9 @@ mongoose.connect(DB).then(async () => {
     amount: 2000000,
     activeStatus: true,
     grace: true,
+    gracePeriodDays: 30,
+    graceActivationDate: new Date(),
+    graceRemainingDays: 30,
   });
   console.log("Session created successfully!");
 
@@ -126,8 +129,32 @@ mongoose.connect(DB).then(async () => {
         .slice(-2)}/${studentNumber}`;
 
       let registrationStatus = "NOT REGISTERED";
+      let fundedAmount = 0;
+
+      // Determine funded amount and registration status based on sponsor and grace period
       if (randomSponsor.name === "Metfund") {
         registrationStatus = "REGISTERED";
+        fundedAmount = session.amount; // Full amount for Metfund students
+      } else if (randomSponsor.name === "HESLB") {
+        // For HESLB, check grace period status
+        if (session.grace) {
+          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount during grace
+          registrationStatus = "REGISTERED"; // All students registered during grace
+        } else {
+          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount
+          registrationStatus =
+            fundedAmount >= session.amount ? "REGISTERED" : "NOT REGISTERED";
+        }
+      } else {
+        // Private sponsors
+        if (session.grace) {
+          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount during grace
+          registrationStatus = "REGISTERED"; // All students registered during grace
+        } else {
+          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount
+          registrationStatus =
+            fundedAmount >= session.amount ? "REGISTERED" : "NOT REGISTERED";
+        }
       }
 
       return {
@@ -141,11 +168,13 @@ mongoose.connect(DB).then(async () => {
         classId: randomClass._id,
         sponsor: randomSponsor._id,
         status: registrationStatus,
+        registrationStatus,
         gender: Math.random() < 0.5 ? "Male" : "Female",
         enrollmentYear,
         image: faker.image.avatar(),
         regNo,
         sessionId: session._id,
+        fundedAmount,
         payments: [],
       };
     })
@@ -154,19 +183,17 @@ mongoose.connect(DB).then(async () => {
   const createdStudents = await studentModel.insertMany(students);
   console.log("Students seeded successfully!");
 
-  // Create payments for registered students
-  const payments = await Promise.all(
-    createdStudents
-      .filter((student) => student.status === "REGISTERED")
-      .map(async (student) => {
-        const studentClass = await classModel.findById(student.classId);
-        return {
-          amount: studentClass?.fee || 2000000,
-          sessionId: session._id,
-          studentId: student._id,
-        };
-      })
-  );
+  // Create payments for all students
+  const payments = createdStudents.map((student) => ({
+    amount: student.fundedAmount,
+    sessionId: session._id,
+    studentId: student._id,
+    paymentStatus: student.status === "REGISTERED" ? "PAID" : "PENDING",
+    remainingAmount:
+      student.status === "REGISTERED"
+        ? 0
+        : session.amount - student.fundedAmount,
+  }));
 
   await paymentModel.insertMany(payments);
   console.log("Payments seeded successfully!");

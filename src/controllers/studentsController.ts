@@ -158,11 +158,17 @@ export const createStudent = async (
       if (getSponsor.name === "Metfund") {
         registrationStatus = "REGISTERED";
       } else {
-        // For other sponsors, check if submitted amount meets session amount
-        registrationStatus =
-          fundedAmount < currentSession.amount
-            ? "NOT REGISTERED"
-            : "REGISTERED";
+        // For other sponsors, check grace period status
+        if (currentSession.grace) {
+          // During grace period, all students are registered regardless of amount
+          registrationStatus = "REGISTERED";
+        } else {
+          // Without grace period, check if funded amount meets session amount
+          registrationStatus =
+            fundedAmount >= currentSession.amount
+              ? "REGISTERED"
+              : "NOT REGISTERED";
+        }
       }
 
       const student = new studentModel({
@@ -185,14 +191,17 @@ export const createStudent = async (
 
       const savedStudent = await student.save();
 
-      // If student is registered, create payment record
-      if (registrationStatus === "REGISTERED") {
-        await paymentModel.create({
-          amount: fundedAmount,
-          sessionId: currentSession._id,
-          studentId: savedStudent._id,
-        });
-      }
+      // Create payment record regardless of registration status
+      await paymentModel.create({
+        amount: fundedAmount || 0, // Use fundedAmount if provided, otherwise 0
+        sessionId: currentSession._id,
+        studentId: savedStudent._id,
+        paymentStatus: registrationStatus === "REGISTERED" ? "PAID" : "PENDING",
+        remainingAmount:
+          registrationStatus === "REGISTERED"
+            ? 0
+            : currentSession.amount - (fundedAmount || 0),
+      });
 
       res.status(201).json({
         status: "success",

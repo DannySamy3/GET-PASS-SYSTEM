@@ -4,6 +4,8 @@ export interface IPayment extends Document {
   amount: number;
   sessionId: mongoose.Schema.Types.ObjectId; // Reference to session model
   studentId: mongoose.Schema.Types.ObjectId; // Reference to student model
+  paymentStatus: "PAID" | "PENDING";
+  remainingAmount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +25,17 @@ const paymentSchema: Schema<IPayment> = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student", // Reference to the student model
       required: true,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["PAID", "PENDING"],
+      required: true,
+      default: "PENDING",
+    },
+    remainingAmount: {
+      type: Number,
+      required: true,
+      default: 0,
     },
   },
   {

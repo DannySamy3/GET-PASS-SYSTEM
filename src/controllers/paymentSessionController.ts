@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import sessionModel from "../models/sessionModel";
 import studentModel from "../models/studentModel";
 import mongoose from "mongoose";
+import paymentModel from "../models/paymentModel";
 
 export const createSession = async (
   req: Request,
@@ -290,9 +291,125 @@ export const updateSession = async (
       return;
     }
 
+    // If grace status changed to false, update students' registration status
+    if (currentSession?.grace && grace === false) {
+      // Find all students in this session
+      const students = await studentModel.find({ sessionId: session._id });
+
+      // For each student, check their payment amount
+      for (const student of students) {
+        const payment = await paymentModel.findOne({
+          studentId: student._id,
+          sessionId: session._id,
+        });
+
+        if (payment && payment.amount < session.amount) {
+          // Update student's registration status to unregistered
+          await studentModel.findByIdAndUpdate(student._id, {
+            status: "NOT REGISTERED",
+            registrationStatus: "NOT REGISTERED",
+          });
+
+          // Update payment status to pending
+          await paymentModel.findByIdAndUpdate(payment._id, {
+            paymentStatus: "PENDING",
+            remainingAmount: session.amount - payment.amount,
+          });
+        }
+      }
+    } else if (!currentSession?.grace && grace === true) {
+      // If grace is being activated, update all students to registered
+      const students = await studentModel.find({ sessionId: session._id });
+
+      for (const student of students) {
+        // Update student's registration status to registered
+        await studentModel.findByIdAndUpdate(student._id, {
+          status: "REGISTERED",
+          registrationStatus: "REGISTERED",
+        });
+
+        // Update their payment status to paid
+        const payment = await paymentModel.findOne({
+          studentId: student._id,
+          sessionId: session._id,
+        });
+
+        if (payment) {
+          await paymentModel.findByIdAndUpdate(payment._id, {
+            paymentStatus: "PAID",
+            remainingAmount: session.amount - payment.amount,
+          });
+        }
+      }
+    }
+
     // If the session's active status changed to true, update all students' session references
     if (!wasActive && willBeActive) {
-      await studentModel.updateMany({}, { sessionId: session._id });
+      // First, get all students that need to be moved to this session
+      const studentsToUpdate = await studentModel.find({});
+
+      for (const student of studentsToUpdate) {
+        // Update student's session reference
+        await studentModel.findByIdAndUpdate(student._id, {
+          sessionId: session._id,
+        });
+
+        // Check if student has a payment for this session
+        const payment = await paymentModel.findOne({
+          studentId: student._id,
+          sessionId: session._id,
+        });
+
+        if (payment) {
+          // If grace is true, register all students
+          if (session.grace) {
+            await studentModel.findByIdAndUpdate(student._id, {
+              status: "REGISTERED",
+              registrationStatus: "REGISTERED",
+            });
+            await paymentModel.findByIdAndUpdate(payment._id, {
+              paymentStatus: "PAID",
+              remainingAmount: session.amount - payment.amount,
+            });
+          } else {
+            // If grace is false, check payment amount
+            if (payment.amount < session.amount) {
+              await studentModel.findByIdAndUpdate(student._id, {
+                status: "NOT REGISTERED",
+                registrationStatus: "NOT REGISTERED",
+              });
+              await paymentModel.findByIdAndUpdate(payment._id, {
+                paymentStatus: "PENDING",
+                remainingAmount: session.amount - payment.amount,
+              });
+            } else {
+              await studentModel.findByIdAndUpdate(student._id, {
+                status: "REGISTERED",
+                registrationStatus: "REGISTERED",
+              });
+              await paymentModel.findByIdAndUpdate(payment._id, {
+                paymentStatus: "PAID",
+                remainingAmount: 0,
+              });
+            }
+          }
+        } else {
+          // If no payment exists for this session, create one with default values
+          await paymentModel.create({
+            amount: 0,
+            sessionId: session._id,
+            studentId: student._id,
+            paymentStatus: "PENDING",
+            remainingAmount: session.amount,
+          });
+
+          // Set student status based on grace period
+          await studentModel.findByIdAndUpdate(student._id, {
+            status: session.grace ? "REGISTERED" : "NOT REGISTERED",
+            registrationStatus: session.grace ? "REGISTERED" : "NOT REGISTERED",
+          });
+        }
+      }
     }
 
     res.status(200).json({
