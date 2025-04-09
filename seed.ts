@@ -75,128 +75,147 @@ const sponsors = [{ name: "HESLB" }, { name: "Metfund" }, { name: "Private" }];
 mongoose.connect(DB).then(async () => {
   console.log("DB connection successful!");
 
-  // Clear existing data
-  await classModel.deleteMany({});
-  await studentModel.deleteMany({});
-  await counterModel.deleteMany({});
-  await sponsorModel.deleteMany({});
-  await sessionModel.deleteMany({});
-  await paymentModel.deleteMany({});
-  await sessionModel.deleteMany({});
+  try {
+    // Clear existing data
+    await classModel.deleteMany({});
+    await studentModel.deleteMany({});
+    await counterModel.deleteMany({});
+    await sponsorModel.deleteMany({});
+    await sessionModel.deleteMany({});
+    await paymentModel.deleteMany({});
+    await sessionModel.deleteMany({});
 
-  // Create a session
-  const currentDate = new Date();
-  const session = await sessionModel.create({
-    sessionName: "2023/2024",
-    startDate: new Date(currentDate.getFullYear(), 0, 1),
-    endDate: new Date(currentDate.getFullYear(), 11, 31),
-    amount: 2000000,
-    activeStatus: true,
-    grace: true,
-    gracePeriodDays: 30,
-    graceActivationDate: new Date(),
-    graceRemainingDays: 30,
-  });
-  console.log("Session created successfully!");
+    // Create a session
+    const currentDate = new Date();
+    const session = await sessionModel.create({
+      sessionName: "2023/2024",
+      startDate: new Date(currentDate.getFullYear(), 0, 1),
+      endDate: new Date(currentDate.getFullYear(), 11, 31),
+      amount: 2000000,
+      activeStatus: true,
+      grace: true,
+      gracePeriodDays: 30,
+      graceActivationDate: new Date(),
+      graceRemainingDays: 30,
+    });
+    console.log("Session created successfully!");
 
-  const createdSponsors = await sponsorModel.insertMany(sponsors);
-  console.log("Sponsors seeded successfully!");
+    const createdSponsors = await sponsorModel.insertMany(sponsors);
+    console.log("Sponsors seeded successfully!");
 
-  const classes = await classModel.insertMany(universityCourses);
-  console.log("Classes seeded successfully!");
+    const classes = await classModel.insertMany(universityCourses);
+    console.log("Classes seeded successfully!");
 
-  await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
+    await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
 
-  const students = await Promise.all(
-    Array.from({ length: 10 }, async () => {
-      const randomClass = classes[Math.floor(Math.random() * classes.length)];
-      const randomSponsor =
-        createdSponsors[Math.floor(Math.random() * createdSponsors.length)];
+    const students = await Promise.all(
+      Array.from({ length: 10 }, async () => {
+        const randomClass = classes[Math.floor(Math.random() * classes.length)];
+        const randomSponsor =
+          createdSponsors[Math.floor(Math.random() * createdSponsors.length)];
 
-      const enrollmentYear =
-        Math.floor(Math.random() * (2024 - 2009 + 1)) + 2009;
+        const enrollmentYear =
+          Math.floor(Math.random() * (2024 - 2009 + 1)) + 2009;
 
-      const counter = await counterModel.findOneAndUpdate(
-        { modelName: "studentNumber" },
-        { $inc: { sequenceValue: 1 } },
-        { new: true }
+        const counter = await counterModel.findOneAndUpdate(
+          { modelName: "studentNumber" },
+          { $inc: { sequenceValue: 1 } },
+          { new: true }
+        );
+
+        const studentNumber = counter?.sequenceValue || 1;
+
+        const regNo = `${randomClass.classInitial}/${enrollmentYear
+          .toString()
+          .slice(-2)}/${studentNumber}`;
+
+        let registrationStatus = "NOT REGISTERED";
+
+        // Determine registration status based on sponsor and grace period
+        if (randomSponsor.name === "Metfund") {
+          registrationStatus = "REGISTERED";
+        } else if (session.grace) {
+          // During grace period, all students are registered
+          registrationStatus = "REGISTERED";
+        }
+
+        return {
+          studentNumber,
+          firstName: faker.person.firstName(),
+          secondName: faker.person.middleName(),
+          lastName: faker.person.lastName(),
+          email: faker.internet.email(),
+          phoneNumber: faker.phone.number(),
+          nationality: faker.location.country(),
+          classId: randomClass._id,
+          sponsor: randomSponsor._id,
+          status: registrationStatus,
+          registrationStatus,
+          gender: Math.random() < 0.5 ? "Male" : "Female",
+          enrollmentYear,
+          image: faker.image.avatar(),
+          regNo,
+          sessionId: session._id,
+          payments: [],
+        };
+      })
+    );
+
+    const createdStudents = await studentModel.insertMany(students);
+    console.log("Students seeded successfully!");
+
+    // Create payments for all students
+    const payments = createdStudents.map((student) => {
+      const sponsor = createdSponsors.find(
+        (s) => s._id.toString() === student.sponsor.toString()
       );
+      const isMetfund = sponsor?.name === "Metfund";
 
-      const studentNumber = counter?.sequenceValue || 1;
-
-      const regNo = `${randomClass.classInitial}/${enrollmentYear
-        .toString()
-        .slice(-2)}/${studentNumber}`;
-
-      let registrationStatus = "NOT REGISTERED";
-      let fundedAmount = 0;
-
-      // Determine funded amount and registration status based on sponsor and grace period
-      if (randomSponsor.name === "Metfund") {
-        registrationStatus = "REGISTERED";
-        fundedAmount = session.amount; // Full amount for Metfund students
-      } else if (randomSponsor.name === "HESLB") {
-        // For HESLB, check grace period status
-        if (session.grace) {
-          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount during grace
-          registrationStatus = "REGISTERED"; // All students registered during grace
-        } else {
-          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount
-          registrationStatus =
-            fundedAmount >= session.amount ? "REGISTERED" : "NOT REGISTERED";
-        }
-      } else {
-        // Private sponsors
-        if (session.grace) {
-          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount during grace
-          registrationStatus = "REGISTERED"; // All students registered during grace
-        } else {
-          fundedAmount = Math.floor(Math.random() * session.amount); // Random amount
-          registrationStatus =
-            fundedAmount >= session.amount ? "REGISTERED" : "NOT REGISTERED";
-        }
+      // Ensure studentId is always set
+      if (!student._id) {
+        throw new Error("Student ID is missing when creating payment");
       }
 
       return {
-        studentNumber,
-        firstName: faker.person.firstName(),
-        secondName: faker.person.middleName(),
-        lastName: faker.person.lastName(),
-        email: faker.internet.email(),
-        phoneNumber: faker.phone.number(),
-        nationality: faker.location.country(),
-        classId: randomClass._id,
-        sponsor: randomSponsor._id,
-        status: registrationStatus,
-        registrationStatus,
-        gender: Math.random() < 0.5 ? "Male" : "Female",
-        enrollmentYear,
-        image: faker.image.avatar(),
-        regNo,
+        amount: isMetfund ? session.amount : 0, // Full amount for Metfund, 0 for others
         sessionId: session._id,
-        fundedAmount,
-        payments: [],
+        studentId: student._id, // Ensure studentId is set
+        paymentStatus: student.status === "REGISTERED" ? "PAID" : "PENDING",
+        remainingAmount: isMetfund ? 0 : session.amount, // 0 for Metfund, full amount for others
       };
-    })
-  );
+    });
 
-  const createdStudents = await studentModel.insertMany(students);
-  console.log("Students seeded successfully!");
+    // Validate payments before inserting
+    for (const payment of payments) {
+      if (!payment.studentId) {
+        throw new Error("Payment is missing studentId");
+      }
+      if (!payment.sessionId) {
+        throw new Error("Payment is missing sessionId");
+      }
+    }
 
-  // Create payments for all students
-  const payments = createdStudents.map((student) => ({
-    amount: student.fundedAmount,
-    sessionId: session._id,
-    studentId: student._id,
-    paymentStatus: student.status === "REGISTERED" ? "PAID" : "PENDING",
-    remainingAmount:
-      student.status === "REGISTERED"
-        ? 0
-        : session.amount - student.fundedAmount,
-  }));
+    await paymentModel.insertMany(payments);
+    console.log("Payments seeded successfully!");
 
-  await paymentModel.insertMany(payments);
-  console.log("Payments seeded successfully!");
+    // Verify that all payments have valid studentIds
+    const allPayments = await paymentModel.find().populate("studentId");
+    const invalidPayments = allPayments.filter((payment) => !payment.studentId);
 
-  mongoose.connection.close();
+    if (invalidPayments.length > 0) {
+      console.error(
+        `Found ${invalidPayments.length} payments with invalid studentIds`
+      );
+      // Optionally, you could delete these invalid payments
+      // await paymentModel.deleteMany({ _id: { $in: invalidPayments.map(p => p._id) } });
+    } else {
+      console.log("All payments have valid studentIds");
+    }
+
+    console.log("Database seeding completed successfully!");
+  } catch (error) {
+    console.error("Error during seeding:", error);
+  } finally {
+    mongoose.connection.close();
+  }
 });

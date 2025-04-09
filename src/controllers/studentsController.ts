@@ -86,7 +86,6 @@ export const createStudent = async (
       enrollmentYear,
       sponsorId,
       gender,
-      fundedAmount,
     } = req.body;
 
     // Validate ObjectId fields
@@ -163,11 +162,8 @@ export const createStudent = async (
           // During grace period, all students are registered regardless of amount
           registrationStatus = "REGISTERED";
         } else {
-          // Without grace period, check if funded amount meets session amount
-          registrationStatus =
-            fundedAmount >= currentSession.amount
-              ? "REGISTERED"
-              : "NOT REGISTERED";
+          // Without grace period, students start as not registered
+          registrationStatus = "NOT REGISTERED";
         }
       }
 
@@ -185,22 +181,19 @@ export const createStudent = async (
         gender,
         image: imageFilePath,
         enrollmentYear,
-        fundedAmount,
         sessionId: currentSession._id,
       });
 
       const savedStudent = await student.save();
 
-      // Create payment record regardless of registration status
+      // Create payment record
       await paymentModel.create({
-        amount: fundedAmount || 0, // Use fundedAmount if provided, otherwise 0
+        amount: getSponsor.name === "Metfund" ? currentSession.amount : 0, // Full amount for Metfund, 0 for others
         sessionId: currentSession._id,
         studentId: savedStudent._id,
         paymentStatus: registrationStatus === "REGISTERED" ? "PAID" : "PENDING",
         remainingAmount:
-          registrationStatus === "REGISTERED"
-            ? 0
-            : currentSession.amount - (fundedAmount || 0),
+          getSponsor.name === "Metfund" ? 0 : currentSession.amount, // 0 for Metfund, full amount for others
       });
 
       res.status(201).json({

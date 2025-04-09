@@ -3,16 +3,15 @@ import { Router } from "express";
 import {
   createPayment,
   getAllPayments,
-  getPaymentById,
-  getPaymentsByStudent,
+  getPaymentsByStudentId,
   getPaymentsBySession,
 } from "../controllers/paymentController";
 
 const router = Router();
 
 router.route("/").post(createPayment).get(getAllPayments);
-router.route("/:id").get(getPaymentById);
-router.route("/student/:studentId").get(getPaymentsByStudent);
+router.route("/:id").get(getPaymentsByStudentId);
+
 router.route("/session/:sessionId").get(getPaymentsBySession);
 
 export default router;

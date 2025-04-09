@@ -24,7 +24,7 @@ const paymentSchema: Schema<IPayment> = new Schema(
     studentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student", // Reference to the student model
-      required: true,
+      required: [true, "Payment must be associated with a student"],
     },
     paymentStatus: {
       type: String,
@@ -42,6 +42,15 @@ const paymentSchema: Schema<IPayment> = new Schema(
     timestamps: true, // This will automatically add createdAt and updatedAt fields
   }
 );
+
+// Add a pre-save middleware to validate studentId
+paymentSchema.pre("save", function (next) {
+  if (!this.studentId) {
+    next(new Error("Payment must be associated with a student"));
+  } else {
+    next();
+  }
+});
 
 const paymentModel = mongoose.model<IPayment>("Payment", paymentSchema);
 export default paymentModel;

@@ -22,7 +22,6 @@ export interface IStudent extends Document {
   lastName: string;
   email: string;
   phoneNumber: string;
-
   nationality: string;
   classId: Schema.Types.ObjectId;
   sponsor: Schema.Types.ObjectId; // Reference to Sponsor model
@@ -33,7 +32,6 @@ export interface IStudent extends Document {
   image: string;
   regNo: string;
   sessionId: Schema.Types.ObjectId; // Reference to Session model
-  fundedAmount: number;
 }
 
 // Student Schema
@@ -45,7 +43,6 @@ const studentSchema: Schema<IStudent> = new Schema(
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     phoneNumber: { type: String, required: true },
-
     nationality: { type: String, required: true },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -75,7 +72,6 @@ const studentSchema: Schema<IStudent> = new Schema(
       ref: "Session", // Reference to Session model
       required: true,
     },
-    fundedAmount: { type: Number, required: true },
   },
   { timestamps: true }
 );
@@ -139,6 +135,6 @@ studentSchema.pre("save", async function (next) {
 });
 
 // Model definition
-const studentModel = mongoose.model<IStudent>("studentModel", studentSchema);
+const studentModel = mongoose.model<IStudent>("Student", studentSchema);
 
 export default studentModel;
