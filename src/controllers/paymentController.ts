@@ -165,60 +165,6 @@ export const getPaymentsByStudentId = async (
   }
 };
 
-// export const getPaymentsByStudent = async (
-//   req: Request,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const id = req.params.id;
-
-//     if (!id) {
-//       res.status(400).json({
-//         status: "fail",
-//         message: "Student ID is required",
-//       });
-//       return;
-//     }
-
-//     // Find the current active session
-//     const activeSession = await sessionModel.findOne({ activeStatus: true });
-
-//     if (!activeSession) {
-//       res.status(404).json({
-//         status: "fail",
-//         message: "No active session found",
-//       });
-//       return;
-//     }
-
-//     const payments = await paymentModel
-//       .find({
-//         id,
-//         sessionId: activeSession._id,
-//       })
-//       .populate("sessionId")
-//       .populate("studentId");
-
-//     res.status(200).json({
-//       status: "success",
-//       results: payments.length,
-//       data: { payments },
-//     });
-//   } catch (error) {
-//     if (error instanceof Error) {
-//       res.status(500).json({
-//         status: "fail",
-//         message: error.message,
-//       });
-//     } else {
-//       res.status(500).json({
-//         status: "fail",
-//         message: "An unknown error occurred",
-//       });
-//     }
-//   }
-// };
-
 export const getPaymentsBySession = async (
   req: Request,
   res: Response
@@ -236,6 +182,131 @@ export const getPaymentsBySession = async (
     });
   } catch (error) {
     if (error instanceof Error) {
+      res.status(500).json({
+        status: "fail",
+        message: error.message,
+      });
+    } else {
+      res.status(500).json({
+        status: "fail",
+        message: "An unknown error occurred",
+      });
+    }
+  }
+};
+
+export const updatePayment = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id: studentId } = req.params;
+    const { amount } = req.body;
+
+    // Validate required fields
+    if (!studentId) {
+      res.status(400).json({
+        status: "fail",
+        message: "Student ID is required",
+      });
+      return;
+    }
+
+    if (!amount || amount <= 0) {
+      res.status(400).json({
+        status: "fail",
+        message: "Valid payment amount is required",
+      });
+      return;
+    }
+
+    // Find the student
+    const student = await studentModel.findById(studentId);
+    if (!student) {
+      res.status(404).json({
+        status: "fail",
+        message: "Student not found",
+      });
+      return;
+    }
+
+    // Find the active session
+    const activeSession = await sessionModel.findOne({ activeStatus: true });
+    if (!activeSession) {
+      res.status(404).json({
+        status: "fail",
+        message: "No active session found",
+      });
+      return;
+    }
+
+    // Find the student's payment for this session
+    const existingPayment = await paymentModel.findOne({
+      studentId,
+      sessionId: activeSession._id,
+    });
+
+    if (!existingPayment) {
+      res.status(404).json({
+        status: "fail",
+        message:
+          "No payment record found for this student in the active session",
+      });
+      return;
+    }
+
+    // Calculate the total amount after adding the new payment
+    const totalAmount = existingPayment.amount + amount;
+    const remainingToPay = activeSession.amount - existingPayment.amount;
+
+    // Check if the total amount would be less than the session amount
+    if (totalAmount < activeSession.amount) {
+      res.status(400).json({
+        status: "fail",
+        message: `Total payment amount (${totalAmount}) would be less than the required session amount (${activeSession.amount}). Please pay at least ${remainingToPay} to complete the payment.`,
+      });
+      return;
+    }
+
+    // Update the payment
+    const updatedPayment = await paymentModel
+      .findByIdAndUpdate(
+        existingPayment._id,
+        {
+          amount: totalAmount,
+          paymentStatus:
+            totalAmount >= activeSession.amount ? "PAID" : "PENDING",
+          remainingAmount: Math.max(0, activeSession.amount - totalAmount),
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      )
+      .populate("sessionId")
+      .populate("studentId");
+
+    // Update student's registration status if payment is complete
+    if (totalAmount >= activeSession.amount) {
+      await studentModel.findByIdAndUpdate(studentId, {
+        status: "REGISTERED",
+        registrationStatus: "REGISTERED",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: { payment: updatedPayment },
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === "ValidationError") {
+        res.status(400).json({
+          status: "fail",
+          message: error.message,
+        });
+        return;
+      }
       res.status(500).json({
         status: "fail",
         message: error.message,

@@ -3,6 +3,7 @@ import sessionModel from "../models/sessionModel";
 import studentModel from "../models/studentModel";
 import mongoose from "mongoose";
 import paymentModel from "../models/paymentModel";
+import sponsorModel from "../models/sponsorModel";
 
 export const createSession = async (
   req: Request,
@@ -366,12 +367,36 @@ export const updateSession = async (
           });
         }
 
-        // Update student's session reference and fundedAmount
+        // Get student's sponsor to check if they are Metfund
+        const sponsor = await sponsorModel.findById(student.sponsor);
+        const isMetfund = sponsor?.name === "Metfund";
+
+        // Determine registration status:
+        // 1. If grace period is active, all students are registered
+        // 2. If Metfund student, they are registered
+        // 3. Otherwise, only registered if they have paid the full amount for this session
+        let registrationStatus = "NOT REGISTERED";
+        if (session.grace) {
+          registrationStatus = "REGISTERED";
+        } else if (isMetfund) {
+          registrationStatus = "REGISTERED";
+        } else if (payment.amount >= session.amount) {
+          registrationStatus = "REGISTERED";
+        }
+
+        // Update student's session reference and status
         await studentModel.findByIdAndUpdate(student._id, {
           sessionId: session._id,
           fundedAmount: payment.amount,
-          status: session.grace ? "REGISTERED" : "NOT REGISTERED",
-          registrationStatus: session.grace ? "REGISTERED" : "NOT REGISTERED",
+          status: registrationStatus,
+          registrationStatus: registrationStatus,
+        });
+
+        // Update payment status based on registration status
+        await paymentModel.findByIdAndUpdate(payment._id, {
+          paymentStatus:
+            registrationStatus === "REGISTERED" ? "PAID" : "PENDING",
+          remainingAmount: Math.max(0, session.amount - payment.amount),
         });
       }
     }
@@ -402,6 +427,10 @@ export const deleteSession = async (
       return;
     }
 
+    // First delete all payments associated with this session
+    await paymentModel.deleteMany({ sessionId: req.params.id });
+
+    // Then delete the session
     const session = await sessionModel.findByIdAndDelete(req.params.id);
 
     if (!session) {
