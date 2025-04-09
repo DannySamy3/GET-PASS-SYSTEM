@@ -349,66 +349,30 @@ export const updateSession = async (
       const studentsToUpdate = await studentModel.find({});
 
       for (const student of studentsToUpdate) {
-        // Update student's session reference
-        await studentModel.findByIdAndUpdate(student._id, {
-          sessionId: session._id,
-        });
-
-        // Check if student has a payment for this session
-        const payment = await paymentModel.findOne({
+        // Find or create payment record for this session
+        let payment = await paymentModel.findOne({
           studentId: student._id,
           sessionId: session._id,
         });
 
-        if (payment) {
-          // If grace is true, register all students
-          if (session.grace) {
-            await studentModel.findByIdAndUpdate(student._id, {
-              status: "REGISTERED",
-              registrationStatus: "REGISTERED",
-            });
-            await paymentModel.findByIdAndUpdate(payment._id, {
-              paymentStatus: "PAID",
-              remainingAmount: session.amount - payment.amount,
-            });
-          } else {
-            // If grace is false, check payment amount
-            if (payment.amount < session.amount) {
-              await studentModel.findByIdAndUpdate(student._id, {
-                status: "NOT REGISTERED",
-                registrationStatus: "NOT REGISTERED",
-              });
-              await paymentModel.findByIdAndUpdate(payment._id, {
-                paymentStatus: "PENDING",
-                remainingAmount: session.amount - payment.amount,
-              });
-            } else {
-              await studentModel.findByIdAndUpdate(student._id, {
-                status: "REGISTERED",
-                registrationStatus: "REGISTERED",
-              });
-              await paymentModel.findByIdAndUpdate(payment._id, {
-                paymentStatus: "PAID",
-                remainingAmount: 0,
-              });
-            }
-          }
-        } else {
-          // If no payment exists for this session, create one with default values
-          await paymentModel.create({
+        if (!payment) {
+          // Create a new payment record for this session with default values
+          payment = await paymentModel.create({
             amount: 0,
             sessionId: session._id,
             studentId: student._id,
             paymentStatus: "PENDING",
             remainingAmount: session.amount,
           });
-
-          // Set student status based on grace period
-          await studentModel.findByIdAndUpdate(student._id, {
-            status: session.grace ? "REGISTERED" : "NOT REGISTERED",
-            registrationStatus: session.grace ? "REGISTERED" : "NOT REGISTERED",
-          });
         }
+
+        // Update student's session reference and fundedAmount
+        await studentModel.findByIdAndUpdate(student._id, {
+          sessionId: session._id,
+          fundedAmount: payment.amount,
+          status: session.grace ? "REGISTERED" : "NOT REGISTERED",
+          registrationStatus: session.grace ? "REGISTERED" : "NOT REGISTERED",
+        });
       }
     }
 
