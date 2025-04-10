@@ -419,13 +419,13 @@ export const getClassRegistrationStats = async (
       // Count registered students
       const registeredCount = await studentModel.countDocuments({
         classId: classId, // No need to call toString() here
-        registrationStatus: "REGISTERED",
+        status: "REGISTERED",
       });
 
       // Count unregistered students
       const unregisteredCount = await studentModel.countDocuments({
         classId: classId, // No need to call toString() here
-        registrationStatus: "NOT REGISTERED",
+        status: "NOT REGISTERED",
       });
 
       // Populate stats
