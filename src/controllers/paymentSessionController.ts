@@ -164,255 +164,6 @@ export const getSessionById = async (
   }
 };
 
-// export const updateSession = async (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction
-// ): Promise<void> => {
-//   try {
-//     const {
-//       sessionName,
-//       startDate,
-//       endDate,
-//       amount,
-//       activeStatus,
-//       grace,
-//       gracePeriodDays,
-//     } = req.body;
-
-//     // Validate ObjectId
-//     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-//       res.status(400).json({
-//         status: "fail",
-//         message: "Invalid session ID",
-//       });
-//       return;
-//     }
-
-//     // Validate amount if provided
-//     if (amount !== undefined && amount <= 0) {
-//       res.status(400).json({
-//         status: "fail",
-//         message: "Amount must be greater than 0",
-//       });
-//       return;
-//     }
-
-//     // Validate grace period days if provided
-//     if (gracePeriodDays !== undefined && gracePeriodDays < 0) {
-//       res.status(400).json({
-//         status: "fail",
-//         message: "Grace period days must be 0 or greater",
-//       });
-//       return;
-//     }
-
-//     // Validate dates if provided
-//     if (startDate && endDate) {
-//       const start = new Date(startDate);
-//       const end = new Date(endDate);
-//       if (end <= start) {
-//         res.status(400).json({
-//           status: "fail",
-//           message: "End date must be after start date",
-//         });
-//         return;
-//       }
-//     }
-
-//     // Get current session to check active status changes
-//     const currentSession = await sessionModel.findById(req.params.id);
-//     const wasActive = currentSession?.activeStatus;
-//     const willBeActive = activeStatus === true;
-
-//     // If specifically setting activeStatus to true, set all other sessions to false
-//     if (willBeActive) {
-//       // First, update all other sessions to false
-//       await sessionModel.updateMany(
-//         { _id: { $ne: req.params.id } },
-//         { activeStatus: false }
-//       );
-//     }
-
-//     const updateData: any = {
-//       ...(sessionName && { sessionName }),
-//       ...(startDate && { startDate: new Date(startDate) }),
-//       ...(endDate && { endDate: new Date(endDate) }),
-//       ...(amount && { amount }),
-//       ...(typeof activeStatus === "boolean" && { activeStatus }),
-//     };
-
-//     // Handle grace period updates
-//     if (typeof grace === "boolean" || gracePeriodDays !== undefined) {
-//       if (grace === true) {
-//         // Grace is being activated
-//         updateData.grace = true;
-//         updateData.graceActivationDate = new Date();
-//         updateData.gracePeriodDays =
-//           gracePeriodDays || currentSession?.gracePeriodDays || 0;
-//         updateData.graceRemainingDays = updateData.gracePeriodDays;
-//       } else if (grace === false) {
-//         // Grace is being deactivated
-//         updateData.grace = false;
-//         updateData.graceActivationDate = undefined;
-//         updateData.gracePeriodDays = 0;
-//         updateData.graceRemainingDays = 0;
-//       } else if (gracePeriodDays !== undefined && currentSession?.grace) {
-//         // Only updating grace period days for an active grace period
-//         updateData.gracePeriodDays = gracePeriodDays;
-//         if (currentSession.graceActivationDate) {
-//           const now = new Date();
-//           const daysPassed = Math.floor(
-//             (now.getTime() - currentSession.graceActivationDate.getTime()) /
-//               (1000 * 60 * 60 * 24)
-//           );
-//           updateData.graceRemainingDays = Math.max(
-//             0,
-//             gracePeriodDays - daysPassed
-//           );
-//         }
-//       }
-//     }
-
-//     // Then update the target session
-//     const session = await sessionModel.findByIdAndUpdate(
-//       req.params.id,
-//       updateData,
-//       {
-//         new: true,
-//         runValidators: true,
-//       }
-//     );
-
-//     if (!session) {
-//       res.status(404).json({
-//         status: "fail",
-//         message: "Session not found",
-//       });
-//       return;
-//     }
-
-//     // If grace status changed to false, update students' registration status
-//     if (currentSession?.grace && grace === false) {
-//       // Find all students in this session
-//       const students = await studentModel.find({ sessionId: session._id });
-
-//       // For each student, check their payment amount
-//       for (const student of students) {
-//         const payment = await paymentModel.findOne({
-//           studentId: student._id,
-//           sessionId: session._id,
-//         });
-
-//         if (payment && payment.amount < session.amount) {
-//           // Update student's registration status to unregistered
-//           await studentModel.findByIdAndUpdate(student._id, {
-//             status: "NOT REGISTERED",
-//             registrationStatus: "NOT REGISTERED",
-//           });
-
-//           // Update payment status to pending
-//           await paymentModel.findByIdAndUpdate(payment._id, {
-//             paymentStatus: "PENDING",
-//             remainingAmount: session.amount - payment.amount,
-//           });
-//         }
-//       }
-//     } else if (!currentSession?.grace && grace === true) {
-//       // If grace is being activated, update all students to registered
-//       const students = await studentModel.find({ sessionId: session._id });
-
-//       for (const student of students) {
-//         // Update student's registration status to registered
-//         await studentModel.findByIdAndUpdate(student._id, {
-//           status: "REGISTERED",
-//           registrationStatus: "REGISTERED",
-//         });
-
-//         // Update their payment status to paid
-//         const payment = await paymentModel.findOne({
-//           studentId: student._id,
-//           sessionId: session._id,
-//         });
-
-//         if (payment) {
-//           await paymentModel.findByIdAndUpdate(payment._id, {
-//             paymentStatus: "PAID",
-//             remainingAmount: session.amount - payment.amount,
-//           });
-//         }
-//       }
-//     }
-
-//     // If the session's active status changed to true, update all students' session references
-//     if (!wasActive && willBeActive) {
-//       // First, get all students that need to be moved to this session
-//       const studentsToUpdate = await studentModel.find({});
-
-//       for (const student of studentsToUpdate) {
-//         // Find or create payment record for this session
-//         let payment = await paymentModel.findOne({
-//           studentId: student._id,
-//           sessionId: session._id,
-//         });
-
-//         if (!payment) {
-//           // Create a new payment record for this session with default values
-//           payment = await paymentModel.create({
-//             amount: 0,
-//             sessionId: session._id,
-//             studentId: student._id,
-//             paymentStatus: "PENDING",
-//             remainingAmount: session.amount,
-//           });
-//         }
-
-//         // Get student's sponsor to check if they are Metfund
-//         const sponsor = await sponsorModel.findById(student.sponsor);
-//         const isMetfund = sponsor?.name === "Metfund";
-
-//         // Determine registration status:
-//         // 1. If grace period is active, all students are registered
-//         // 2. If Metfund student, they are registered
-//         // 3. Otherwise, only registered if they have paid the full amount for this session
-//         let registrationStatus = "NOT REGISTERED";
-//         if (session.grace) {
-//           registrationStatus = "REGISTERED";
-//         } else if (isMetfund) {
-//           registrationStatus = "REGISTERED";
-//         } else if (payment.amount >= session.amount) {
-//           registrationStatus = "REGISTERED";
-//         }
-
-//         // Update student's session reference and status
-//         await studentModel.findByIdAndUpdate(student._id, {
-//           sessionId: session._id,
-//           fundedAmount: payment.amount,
-//           status: registrationStatus,
-//           registrationStatus: registrationStatus,
-//         });
-
-//         // Update payment status based on registration status
-//         await paymentModel.findByIdAndUpdate(payment._id, {
-//           paymentStatus:
-//             registrationStatus === "REGISTERED" ? "PAID" : "PENDING",
-//           remainingAmount: Math.max(0, session.amount - payment.amount),
-//         });
-//       }
-//     }
-
-//     res.status(200).json({
-//       status: "success",
-//       data: {
-//         session,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error updating session:", error);
-//     next(error);
-//   }
-// };
-
 export const updateSession = async (
   req: Request,
   res: Response,
@@ -523,40 +274,79 @@ export const updateSession = async (
     const handleGraceChange = async () => {
       const students = await studentModel.find({ sessionId });
 
+      // Grace turned OFF
       if (currentSession.grace && grace === false) {
-        // Grace turned off
         await Promise.all(
           students.map(async (student) => {
+            // Get sponsor info
+            const sponsor = await sponsorModel.findById(student.sponsor);
+            const isMetfund = sponsor?.name?.toLowerCase() === "metfund";
+
+            // Get payment info
             const payment = await paymentModel.findOne({
               studentId: student._id,
               sessionId,
             });
-            if (payment && payment.amount < updatedSession.amount) {
+
+            if (isMetfund) {
+              // Metfund-sponsored student is always registered and fully paid
               await studentModel.findByIdAndUpdate(student._id, {
-                status: "NOT REGISTERED",
-                registrationStatus: "NOT REGISTERED",
+                status: "REGISTERED",
+                registrationStatus: "REGISTERED",
               });
-              await paymentModel.findByIdAndUpdate(payment._id, {
-                paymentStatus: "PENDING",
-                remainingAmount: updatedSession.amount - payment.amount,
-              });
+
+              if (payment) {
+                await paymentModel.findByIdAndUpdate(payment._id, {
+                  paymentStatus: "PAID",
+                  remainingAmount: 0,
+                });
+              } else {
+                // If no payment exists, create it
+                await paymentModel.create({
+                  studentId: student._id,
+                  sessionId,
+                  amount: updatedSession.amount,
+                  paymentStatus: "PAID",
+                  remainingAmount: 0,
+                });
+              }
+            } else {
+              // Non-Metfund logic
+              const hasPaidEnough =
+                payment && payment.amount >= updatedSession.amount;
+
+              if (!hasPaidEnough) {
+                await studentModel.findByIdAndUpdate(student._id, {
+                  status: "NOT REGISTERED",
+                  registrationStatus: "NOT REGISTERED",
+                });
+
+                if (payment) {
+                  await paymentModel.findByIdAndUpdate(payment._id, {
+                    paymentStatus: "PENDING",
+                    remainingAmount: updatedSession.amount - payment.amount,
+                  });
+                }
+              }
             }
           })
         );
       }
 
+      // Grace turned ON
       if (!currentSession.grace && grace === true) {
-        // Grace turned on
         await Promise.all(
           students.map(async (student) => {
             await studentModel.findByIdAndUpdate(student._id, {
               status: "REGISTERED",
               registrationStatus: "REGISTERED",
             });
+
             const payment = await paymentModel.findOne({
               studentId: student._id,
               sessionId,
             });
+
             if (payment) {
               await paymentModel.findByIdAndUpdate(payment._id, {
                 paymentStatus: "PAID",
@@ -568,31 +358,80 @@ export const updateSession = async (
       }
     };
 
+    // const handleActiveStatusChange = async () => {
+    //   if (!currentSession.activeStatus && activeStatus === true) {
+    //     const students = await studentModel.find({});
+    //     await Promise.all(
+    //       students.map(async (student) => {
+    //         let payment = await paymentModel.findOne({
+    //           studentId: student._id,
+    //           sessionId,
+    //         });
+    //         if (!payment) {
+    //           payment = await paymentModel.create({
+    //             amount: 0,
+    //             sessionId,
+    //             studentId: student._id,
+    //             paymentStatus: "PENDING",
+    //             remainingAmount: updatedSession.amount,
+    //           });
+    //         }
+
+    //         const sponsor = await sponsorModel.findById(student.sponsor);
+    //         const isMetfund = sponsor?.name === "Metfund";
+    //         const isRegistered =
+    //           updatedSession.grace ||
+    //           isMetfund ||
+    //           payment.amount >= updatedSession.amount;
+
+    //         await studentModel.findByIdAndUpdate(student._id, {
+    //           sessionId,
+    //           fundedAmount: payment.amount,
+    //           status: isRegistered ? "REGISTERED" : "NOT REGISTERED",
+    //           registrationStatus: isRegistered
+    //             ? "REGISTERED"
+    //             : "NOT REGISTERED",
+    //         });
+
+    //         await paymentModel.findByIdAndUpdate(payment._id, {
+    //           paymentStatus: isRegistered ? "PAID" : "PENDING",
+    //           remainingAmount: Math.max(
+    //             0,
+    //             updatedSession.amount - payment.amount
+    //           ),
+    //         });
+    //       })
+    //     );
+    //   }
+    // };
+
     const handleActiveStatusChange = async () => {
       if (!currentSession.activeStatus && activeStatus === true) {
-        const students = await studentModel.find({});
+        const students = await studentModel.find({}).populate("sponsor");
+
         await Promise.all(
           students.map(async (student) => {
+            const sponsor = student.sponsor as any;
+            const isMetfund = sponsor?.name?.toLowerCase() === "metfund";
+
             let payment = await paymentModel.findOne({
               studentId: student._id,
               sessionId,
             });
+
             if (!payment) {
               payment = await paymentModel.create({
-                amount: 0,
-                sessionId,
                 studentId: student._id,
-                paymentStatus: "PENDING",
-                remainingAmount: updatedSession.amount,
+                sessionId,
+                amount: isMetfund ? updatedSession.amount : 0,
+                paymentStatus: isMetfund ? "PAID" : "PENDING",
+                remainingAmount: isMetfund ? 0 : updatedSession.amount,
               });
             }
 
-            const sponsor = await sponsorModel.findById(student.sponsor);
-            const isMetfund = sponsor?.name === "Metfund";
-            const isRegistered =
-              updatedSession.grace ||
-              isMetfund ||
-              payment.amount >= updatedSession.amount;
+            const hasPaidEnough = payment.amount >= updatedSession.amount;
+
+            const isRegistered = isMetfund || hasPaidEnough;
 
             await studentModel.findByIdAndUpdate(student._id, {
               sessionId,
