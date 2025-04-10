@@ -360,7 +360,7 @@ export const getRegisteredStudents = async (
 ): Promise<void> => {
   try {
     const students = await studentModel.find({
-      registrationStatus: "REGISTERED",
+      status: "REGISTERED",
     });
 
     if (students.length === 0) {
