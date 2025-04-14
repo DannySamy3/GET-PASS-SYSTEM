@@ -259,11 +259,11 @@ export const updatePayment = async (
     const totalAmount = existingPayment.amount + amount;
     const remainingToPay = activeSession.amount - existingPayment.amount;
 
-    // Check if the total amount would be less than the session amount
-    if (totalAmount < activeSession.amount) {
+    // Check if the total amount would not match exactly with the session amount
+    if (totalAmount !== activeSession.amount) {
       res.status(400).json({
         status: "fail",
-        message: `Total payment amount (${totalAmount}) would be less than the required session amount (${activeSession.amount}). Please pay at least ${remainingToPay} to complete the payment.`,
+        message: `Total payment amount (${totalAmount}) must be exactly equal to the required session amount (${activeSession.amount}). Please pay exactly ${remainingToPay} to complete the payment.`,
       });
       return;
     }
