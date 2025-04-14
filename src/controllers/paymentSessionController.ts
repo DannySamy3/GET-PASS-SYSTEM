@@ -358,56 +358,17 @@ export const updateSession = async (
       }
     };
 
-    // const handleActiveStatusChange = async () => {
-    //   if (!currentSession.activeStatus && activeStatus === true) {
-    //     const students = await studentModel.find({});
-    //     await Promise.all(
-    //       students.map(async (student) => {
-    //         let payment = await paymentModel.findOne({
-    //           studentId: student._id,
-    //           sessionId,
-    //         });
-    //         if (!payment) {
-    //           payment = await paymentModel.create({
-    //             amount: 0,
-    //             sessionId,
-    //             studentId: student._id,
-    //             paymentStatus: "PENDING",
-    //             remainingAmount: updatedSession.amount,
-    //           });
-    //         }
-
-    //         const sponsor = await sponsorModel.findById(student.sponsor);
-    //         const isMetfund = sponsor?.name === "Metfund";
-    //         const isRegistered =
-    //           updatedSession.grace ||
-    //           isMetfund ||
-    //           payment.amount >= updatedSession.amount;
-
-    //         await studentModel.findByIdAndUpdate(student._id, {
-    //           sessionId,
-    //           fundedAmount: payment.amount,
-    //           status: isRegistered ? "REGISTERED" : "NOT REGISTERED",
-    //           registrationStatus: isRegistered
-    //             ? "REGISTERED"
-    //             : "NOT REGISTERED",
-    //         });
-
-    //         await paymentModel.findByIdAndUpdate(payment._id, {
-    //           paymentStatus: isRegistered ? "PAID" : "PENDING",
-    //           remainingAmount: Math.max(
-    //             0,
-    //             updatedSession.amount - payment.amount
-    //           ),
-    //         });
-    //       })
-    //     );
-    //   }
-    // };
-
     const handleActiveStatusChange = async () => {
       if (!currentSession.activeStatus && activeStatus === true) {
         const students = await studentModel.find({}).populate("sponsor");
+
+        // Turn off grace for this session
+        await sessionModel.findByIdAndUpdate(sessionId, {
+          grace: false,
+          graceActivationDate: undefined,
+          gracePeriodDays: 0,
+          graceRemainingDays: 0,
+        });
 
         await Promise.all(
           students.map(async (student) => {
