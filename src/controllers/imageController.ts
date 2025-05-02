@@ -29,7 +29,10 @@ const upload = multer({
 });
 
 // Middleware for Multer to handle file uploads
-export const handleImageUpload = upload.single("file");
+export const handleImageUpload = upload.fields([
+  { name: "image", maxCount: 1 },
+  { name: "file", maxCount: 1 },
+]);
 
 interface ImgurErrorResponse {
   response?: {
@@ -80,29 +83,32 @@ export const uploadFileToImgur = async (
 
 // Controller to edit the image and update the student image URL in the DB
 export const editImageController = async (
-  req: Request & { file?: Express.Multer.File },
+  req: Request & { files?: { [fieldname: string]: Express.Multer.File[] } },
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Check if the file was uploaded
-    if (!req.file) {
+    // Check if any files were uploaded
+    if (!req.files || (!req.files.image && !req.files.file)) {
       res.status(400).json({ error: "No file uploaded" });
       return;
     }
 
-    const { studentId, previousImageUrl } = req.body;
+    const { studentId } = req.body;
 
     if (!studentId) {
       res.status(400).json({ error: "Student ID is required" });
       return;
     }
 
+    // Get the file from either field
+    const file = req.files.image?.[0] || req.files.file?.[0];
+
     // Upload the new image to Imgur
     const newFileName = `students/${Date.now()}${path.extname(
-      req.file.originalname
+      file.originalname
     )}`;
-    const imageUrl = await uploadFileToImgur(req.file, newFileName);
+    const imageUrl = await uploadFileToImgur(file, newFileName);
 
     // Update the student's image in the database with the new image URL
     await studentModel.findByIdAndUpdate(studentId, { image: imageUrl });

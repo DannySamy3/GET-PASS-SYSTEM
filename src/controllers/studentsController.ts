@@ -3,12 +3,14 @@ import { Request, Response, NextFunction } from "express";
 import studentModel from "../models/studentModel";
 import classModel, { IClass } from "../models/classModel";
 import sponsorModel from "../models/sponsorModel";
-import { upload, uploadToGCS } from "../gcpStorage"; // Corrected import path
 import sessionModel from "../models/sessionModel";
 import paymentModel from "../models/paymentModel";
 import { Router } from "express";
 import mongoose from "mongoose";
-import { uploadFileToImgur } from "../controllers/imageController";
+import {
+  uploadFileToImgur,
+  handleImageUpload,
+} from "../controllers/imageController";
 import path from "path";
 
 interface ClassStats {
@@ -63,13 +65,13 @@ export const getStudents = async (req: Request, res: Response) => {
 };
 
 export const createStudent = async (
-  req: Request,
+  req: Request & { files?: { [fieldname: string]: Express.Multer.File[] } },
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  upload.single("image")(req, res, async function (err: any) {
+  handleImageUpload(req, res, async function (err: any) {
     console.log(req.body); // Check input fields
-    console.log(req.file); // Check the file being uploaded
+    console.log(req.files); // Check the files being uploaded
 
     if (err) {
       return res
@@ -125,12 +127,14 @@ export const createStudent = async (
 
     try {
       let imageFilePath;
-      if (req.file) {
+      // Get the file from either field
+      const file = req.files?.image?.[0] || req.files?.file?.[0];
+      if (file) {
         try {
           const fileName = `students/${Date.now()}${path.extname(
-            req.file.originalname
+            file.originalname
           )}`;
-          imageFilePath = await uploadFileToImgur(req.file, fileName);
+          imageFilePath = await uploadFileToImgur(file, fileName);
           console.log("Image uploaded successfully:", imageFilePath);
         } catch (uploadError) {
           console.error("Error uploading image to Imgur:", uploadError);
