@@ -8,6 +8,8 @@ import sessionModel from "../models/sessionModel";
 import paymentModel from "../models/paymentModel";
 import { Router } from "express";
 import mongoose from "mongoose";
+import { uploadFileToImgur } from "../controllers/imageController";
+import path from "path";
 
 interface ClassStats {
   registered: { [key: string]: number };
@@ -124,7 +126,23 @@ export const createStudent = async (
     try {
       let imageFilePath;
       if (req.file) {
-        imageFilePath = await uploadToGCS(req.file);
+        try {
+          const fileName = `students/${Date.now()}${path.extname(
+            req.file.originalname
+          )}`;
+          imageFilePath = await uploadFileToImgur(req.file, fileName);
+          console.log("Image uploaded successfully:", imageFilePath);
+        } catch (uploadError) {
+          console.error("Error uploading image to Imgur:", uploadError);
+          return res.status(500).json({
+            status: "fail",
+            message: "Failed to upload image to Imgur",
+            error:
+              uploadError instanceof Error
+                ? uploadError.message
+                : "Unknown upload error",
+          });
+        }
       }
 
       // Get current active session

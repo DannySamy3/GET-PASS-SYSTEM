@@ -21,6 +21,8 @@
     "crypto": "^1.0.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.1",
+    "firebase-admin": "^13.3.0",
+    "imgur": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.14.2",
     "mongoose": "^8.8.3",
