@@ -26,8 +26,10 @@ const scanSchema: Schema<IScan> = new Schema(
     },
     student: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "studentModel", // Reference to the Student model
-      required: true,
+      ref: "Student", // Reference to the Student model
+      required: function (this: IScan) {
+        return this.status !== ScanStatus.FAILED;
+      },
     },
   },
   { timestamps: true }

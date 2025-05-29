@@ -3,6 +3,9 @@ import studentModel from "../models/studentModel";
 import scanModel from "../models/scanModel";
 import { RegistrationStatus } from "../models/studentModel";
 import classModel from "../models/classModel";
+import multer from "multer";
+import jsQR from "jsqr";
+import sharp from "sharp";
 
 enum ScanStatus {
   COMPLETED = "COMPLETED",
@@ -10,66 +13,293 @@ enum ScanStatus {
   FAILED = "FAILED",
 }
 
+// Define the type for the multer file
+interface MulterFile extends Express.Multer.File {
+  mimetype: string;
+  size: number;
+}
+
+// Configure multer for QR code image upload
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (
+    _req: Express.Request,
+    file: Express.Multer.File & { mimetype: string },
+    cb: (error: Error | null, acceptFile: boolean) => void
+  ) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"), false);
+    }
+  },
+}).single("image");
+
 export const addScan = async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-
-  if (!id) {
-    res.status(400).json({
-      status: "fail",
-      message: "Missing required field: id",
-    });
-    return;
-  }
-
-  try {
-    const student = await studentModel.findOne({ _id: id });
-
-    if (!student) {
-      res.status(404).json({
+  upload(req, res, async (err: any) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({
         status: "fail",
-        message: "Student not found",
+        message: `Upload error: ${err.message}`,
       });
-      return;
+    } else if (err) {
+      return res.status(400).json({
+        status: "fail",
+        message: err.message,
+      });
     }
 
-    let scanStatus = ScanStatus.FAILED;
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          status: "fail",
+          message: "No QR code image uploaded",
+        });
+      }
 
-    if (student.status === RegistrationStatus.REGISTERED) {
-      scanStatus = ScanStatus.COMPLETED;
-    } else if (student.status === RegistrationStatus.UNREGISTERED) {
-      scanStatus = ScanStatus.FAILED;
-    }
+      const file = req.file as MulterFile;
 
-    const newScan = await scanModel.create({
-      student: id,
-      status: scanStatus,
-      date: Date.now(),
-    });
+      // Process the QR code image using Sharp
+      const image = sharp(file.buffer);
 
-    res.status(201).json({
-      status: "success",
-      data: {
-        student: {
-          status: student.status,
+      // Get image metadata
+      const metadata = await image.metadata();
+      const originalWidth = metadata.width || 0;
+      const originalHeight = metadata.height || 0;
+
+      // Calculate new dimensions while maintaining aspect ratio
+      const maxDimension = 800; // Maximum width or height
+      let width = originalWidth;
+      let height = originalHeight;
+
+      if (width > height && width > maxDimension) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else if (height > maxDimension) {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+
+      // First attempt: Try to find QR code in the full image
+      let foundQR = false;
+      let qrRegion = { left: 0, top: 0, width: 0, height: 0 };
+
+      // Function to process image data and try to detect QR code
+      const processImageData = async (
+        imageBuffer: Buffer,
+        imgWidth: number,
+        imgHeight: number
+      ) => {
+        const { data } = await sharp(imageBuffer)
+          .ensureAlpha() // Ensure alpha channel
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+
+        // Convert to RGBA format for jsQR
+        const imageData = new Uint8ClampedArray(imgWidth * imgHeight * 4);
+        for (let y = 0; y < imgHeight; y++) {
+          for (let x = 0; x < imgWidth; x++) {
+            const idx = (y * imgWidth + x) * 4; // Assuming Sharp outputs RGBA directly
+            imageData[idx] = data[idx];
+            imageData[idx + 1] = data[idx + 1];
+            imageData[idx + 2] = data[idx + 2];
+            imageData[idx + 3] = data[idx + 3];
+          }
+        }
+
+        // Try to detect QR code
+        const code = jsQR(imageData, imgWidth, imgHeight, {
+          inversionAttempts: "attemptBoth",
+        });
+        return code;
+      };
+
+      // Try to detect QR code in the full image first
+      const fullImageBuffer = await image
+        .resize(width, height, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .toBuffer();
+
+      let code = await processImageData(fullImageBuffer, width, height);
+
+      // If QR code not found, try sliding window approach
+      if (!code) {
+        console.log(
+          "QR code not found in full image, trying sliding window..."
+        );
+
+        // Define window sizes to try (as percentages of image size)
+        const windowSizes = [0.8, 0.6, 0.4];
+        const stepSize = 0.2; // 20% step size
+
+        for (const size of windowSizes) {
+          const windowWidth = Math.round(width * size);
+          const windowHeight = Math.round(height * size);
+
+          // Slide window across image
+          for (
+            let y = 0;
+            y <= height - windowHeight;
+            y += Math.round(height * stepSize)
+          ) {
+            for (
+              let x = 0;
+              x <= width - windowWidth;
+              x += Math.round(width * stepSize)
+            ) {
+              // Extract region
+              const regionBuffer = await image
+                .resize(width, height, {
+                  fit: "inside",
+                  withoutEnlargement: true,
+                })
+                .extract({
+                  left: x,
+                  top: y,
+                  width: windowWidth,
+                  height: windowHeight,
+                })
+                .toBuffer();
+
+              // Try to detect QR code in this region
+              code = await processImageData(
+                regionBuffer,
+                windowWidth,
+                windowHeight
+              );
+
+              if (code) {
+                console.log("QR code found in region:", {
+                  x,
+                  y,
+                  width: windowWidth,
+                  height: windowHeight,
+                });
+                qrRegion = {
+                  left: x,
+                  top: y,
+                  width: windowWidth,
+                  height: windowHeight,
+                };
+                foundQR = true;
+                break;
+              }
+            }
+            if (foundQR) break;
+          }
+          if (foundQR) break;
+        }
+      }
+
+      if (!code) {
+        console.log("All QR code detection attempts failed");
+        // Create a failed scan record
+        const failedScan = await scanModel.create({
+          status: ScanStatus.FAILED,
+          date: Date.now(),
+        });
+
+        return res.status(400).json({
+          status: "fail",
+          message:
+            "No QR code found in image. Please ensure:\n" +
+            "1. The QR code is clear and well-lit\n" +
+            "2. The entire QR code is visible in the image\n" +
+            "3. The image is not blurry or distorted\n" +
+            "4. The QR code has good contrast (black on white background)\n" +
+            "5. The image is in a standard format (JPEG, PNG)",
+        });
+      }
+
+      console.log("QR code detected successfully:", {
+        data: code.data,
+        location: code.location,
+        version: code.version,
+        region: foundQR ? qrRegion : "full image",
+      });
+
+      // Parse the QR code data as JSON
+      let qrData;
+      try {
+        qrData = JSON.parse(code.data);
+      } catch (error) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Invalid QR code data format",
+        });
+      }
+
+      // Extract student ID from the JSON data
+      const studentId = qrData.studentId;
+      if (!studentId) {
+        return res.status(400).json({
+          status: "fail",
+          message: "No student ID found in QR code data",
+        });
+      }
+
+      const student = await studentModel.findOne({ _id: studentId });
+
+      if (!student) {
+        return res.status(404).json({
+          status: "fail",
+          message: "Student not found",
+        });
+      }
+
+      let scanStatus = ScanStatus.FAILED;
+
+      if (student.status === RegistrationStatus.REGISTERED) {
+        scanStatus = ScanStatus.COMPLETED;
+      } else if (student.status === RegistrationStatus.UNREGISTERED) {
+        scanStatus = ScanStatus.FAILED;
+      }
+
+      // Create the new scan record
+      let newScan = await scanModel.create({
+        student: studentId,
+        status: scanStatus,
+        date: Date.now(),
+      });
+
+      // Populate the student field in the new scan record and select desired fields
+      newScan = await newScan.populate({
+        path: "student",
+        select: "firstName secondName lastName -_id", // Select these fields, exclude _id
+      });
+
+      // Structure the response to include the populated student and exclude unwanted fields
+      return res.status(201).json({
+        status: "success",
+        data: {
+          scan: {
+            date: newScan.date,
+            status: newScan.status,
+            student: newScan.student, // Populated student object
+          },
         },
-        scan: newScan,
-      },
-    });
-  } catch (error) {
-    console.error("Error in adding scan:", error);
+      });
+    } catch (error) {
+      console.error("Error in adding scan:", error);
 
-    const newScan = await scanModel.create({
-      student: id,
-      status: ScanStatus.PENDING,
-      date: Date.now(),
-    });
+      // Create a failed scan record
+      const failedScan = await scanModel.create({
+        status: ScanStatus.FAILED,
+        date: Date.now(),
+      });
 
-    res.status(500).json({
-      status: "fail",
-      message:
-        "Network error or internal server error. Scan status is PENDING.",
-    });
-  }
+      return res.status(500).json({
+        status: "fail",
+        message:
+          "Failed to process QR code. Please try again with a clearer image.",
+      });
+    }
+  });
 };
 
 export const getScans = async (req: Request, res: Response): Promise<void> => {
