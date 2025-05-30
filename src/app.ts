@@ -21,6 +21,7 @@ const app = express();
 // Set up body parsing with the required size limits
 app.use(bodyParser.json({ limit: "100mb" }));
 app.use(bodyParser.urlencoded({ limit: "100mb", extended: true }));
+app.use(bodyParser.raw({ type: "image/jpeg", limit: "5mb" }));
 
 app.use(cors());
 
