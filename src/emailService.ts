@@ -117,14 +117,15 @@ export const verifyToken = async (
       return res.status(400).json({ message: "Invalid verification code" });
     }
 
-    // If the verification code matches, mark the user as verified
-
+    // If the verification code matches, mark the user as verified but not fully registered
+    user.isVerified = false; // Keep isVerified false until finalization
     await user.save();
 
     // Return a success response
-    res
-      .status(200)
-      .json({ message: "User verified successfully", data: { email } });
+    res.status(200).json({
+      message: "Verification code verified successfully",
+      data: { email },
+    });
   } catch (error) {
     console.error("Error verifying token:", error);
     res.status(500).json({ message: "Error verifying token" });
