@@ -8,7 +8,7 @@ import sharp from "sharp";
 
 enum ScanStatus {
   COMPLETED = "COMPLETED",
-  PENDING = "PENDING",
+  ABSENT = "NOT FOUND",
   FAILED = "FAILED",
 }
 
@@ -168,7 +168,7 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
       console.log("All QR code detection attempts failed");
       // Create a failed scan record
       const failedScan = await scanModel.create({
-        status: ScanStatus.FAILED,
+        status: ScanStatus.ABSENT,
         date: Date.now(),
       });
 

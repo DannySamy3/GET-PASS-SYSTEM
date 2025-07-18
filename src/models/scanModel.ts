@@ -4,7 +4,7 @@ import { IStudent } from "./studentModel"; // Import the IStudent interface from
 // Enum for scan status
 enum ScanStatus {
   COMPLETED = "COMPLETED",
-  PENDING = "PENDING",
+  ERROR = "NOT FOUND",
   FAILED = "FAILED",
 }
 

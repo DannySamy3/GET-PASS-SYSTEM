@@ -12,6 +12,8 @@ import {
   handleImageUpload,
 } from "../controllers/imageController";
 import path from "path";
+import scanModel from "../models/scanModel";
+import { RegistrationStatus } from "../models/studentModel";
 
 interface ClassStats {
   registered: { [key: string]: number };
@@ -500,6 +502,57 @@ export const editStudent = async (
     console.error("Error updating student:", error);
     res.status(500).json({
       message: "Internal server error.",
+    });
+  }
+};
+
+// Controller to get student registration status by ID and increment scan
+export const getStudentRegistrationStatusById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const studentId = req.params.id;
+    const student = await studentModel.findById(studentId);
+
+    if (!student) {
+      res.status(404).json({
+        status: "fail",
+        message: "Student not found",
+      });
+      return;
+    }
+
+    // Determine scan status based on registration status
+    let scanStatus = "FAILED";
+    if (student.status === RegistrationStatus.REGISTERED) {
+      scanStatus = "COMPLETED";
+    } else if (student.status === RegistrationStatus.UNREGISTERED) {
+      scanStatus = "FAILED";
+    }
+
+    // Create a scan record for this student
+    const scan = await scanModel.create({
+      student: student._id,
+      status: scanStatus,
+      date: Date.now(),
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        registrationStatus: student.status,
+        scan: {
+          date: scan.date,
+          status: scan.status,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error in getStudentRegistrationStatusById:", error);
+    res.status(500).json({
+      status: "fail",
+      message: "Failed to get registration status or increment scan.",
     });
   }
 };
