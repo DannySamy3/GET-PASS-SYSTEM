@@ -546,6 +546,7 @@ export const getStudentRegistrationStatusById = async (
           date: scan.date,
           status: scan.status,
         },
+        student, // Include complete student details
       },
     });
   } catch (error) {
