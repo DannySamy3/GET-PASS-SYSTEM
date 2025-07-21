@@ -8,6 +8,7 @@ import sessionModel from "./src/models/sessionModel";
 import paymentModel from "./src/models/paymentModel";
 import { faker } from "@faker-js/faker";
 import userModal from "./src/models/userModal";
+import scanModel from "./src/models/scanModel";
 
 config({ path: "./.env" });
 
@@ -17,56 +18,56 @@ const DB = DB_LOCAL.replace("<PASSWORD>", DB_PASSWORD);
 
 const universityCourses = [
   {
-    name: "Computer Science",
+    name: "Bachelor Degree in Transport and Supply Chain Management",
     duration: 4,
-    classInitial: "CS",
-    fee: 2000000,
+    classInitial: "BTSM",
+    fee: 1526000,
   },
   {
-    name: "Mechanical Engineering",
+    name: "Bachelor Degree in Mechantronics Engineering",
     duration: 4,
-    classInitial: "ME",
-    fee: 2500000,
+    classInitial: "BEME",
+    fee: 1790000,
   },
   {
-    name: "Electrical Engineering",
+    name: "Bachelor Degree in Mechanical and Marine Engineering",
     duration: 4,
-    classInitial: "EE",
-    fee: 2300000,
+    classInitial: "BMME",
+    fee: 1790000,
   },
   {
-    name: "Civil Engineering",
+    name: "Bachelor Degree in Marine Engineering",
     duration: 4,
-    classInitial: "CE",
+    classInitial: "BMTE",
+    fee: 1790000,
+  },
+  {
+    name: "Bachelor Degree in Oil and Gas Engineering",
+    duration: 4,
+    classInitial: "BOGE",
+    fee: 1790000,
+  },
+  { name: "Bachelor Degree in Naval Architecture and Off Shore Engineering", duration: 4, classInitial: "BNAOB", fee: 1680000 },
+  { name: "Bachelor Degree in Marine Transport and Nautical Science", duration: 4, classInitial: "BMTNS", fee: 1746000 },
+  { name: "Bachelor Degree in Shipping And Logistic Management", duration: 4, classInitial: "BSLM", fee: 1240000 },
+  {
+    name: "Master Degree in Shipping Economics and Logistics",
+    duration: 2,
+    classInitial: "MSEL",
+    fee: 4550000,
+  },
+  { name: "Master Degree in Transport and Supply chain Management", duration: 2, classInitial: "MTSM", fee: 2200000 },
+  {
+    name: "Master Degree in Marine Engineering Management",
+    duration: 2,
+    classInitial: "MMEM",
     fee: 2200000,
   },
   {
-    name: "Business Administration",
-    duration: 3,
-    classInitial: "BA",
-    fee: 1800000,
-  },
-  { name: "Economics", duration: 3, classInitial: "EC", fee: 1700000 },
-  { name: "Medicine", duration: 6, classInitial: "MD", fee: 3000000 },
-  { name: "Law", duration: 4, classInitial: "LW", fee: 1900000 },
-  {
-    name: "Architecture",
-    duration: 5,
-    classInitial: "AR",
-    fee: 2400000,
-  },
-  { name: "Psychology", duration: 3, classInitial: "PS", fee: 1600000 },
-  {
-    name: "Biotechnology",
-    duration: 4,
-    classInitial: "BT",
-    fee: 2100000,
-  },
-  {
-    name: "Environmental Science",
-    duration: 3,
-    classInitial: "ES",
-    fee: 1700000,
+    name: "Master Degree in Transport and Nautical Science",
+    duration: 2,
+    classInitial: "MDTNS",
+    fee: 1540000,
   },
 ];
 
@@ -84,6 +85,7 @@ mongoose.connect(DB).then(async () => {
     await sessionModel.deleteMany({});
     await paymentModel.deleteMany({});
     await sessionModel.deleteMany({});
+    await scanModel.deleteMany({})
     // await userModal.deleteMany({});
 
     // Create a session
@@ -110,7 +112,7 @@ mongoose.connect(DB).then(async () => {
     await counterModel.create({ modelName: "studentNumber", sequenceValue: 0 });
 
     const students = await Promise.all(
-      Array.from({ length: 10 }, async () => {
+      Array.from({ length: 15 }, async () => {
         const randomClass = classes[Math.floor(Math.random() * classes.length)];
         const randomSponsor =
           createdSponsors[Math.floor(Math.random() * createdSponsors.length)];
@@ -140,11 +142,44 @@ mongoose.connect(DB).then(async () => {
           registrationStatus = "REGISTERED";
         }
 
+        // Set gender first
+        const gender = Math.random() < 0.5 ? "Male" : "Female";
+        const fakerGender = gender.toLowerCase() as "male" | "female";
+
+        // Static arrays of real people images from randomuser.me
+        const maleImages = [
+          "https://randomuser.me/api/portraits/men/1.jpg",
+          "https://randomuser.me/api/portraits/men/2.jpg",
+          "https://randomuser.me/api/portraits/men/3.jpg",
+          "https://randomuser.me/api/portraits/men/4.jpg",
+          "https://randomuser.me/api/portraits/men/5.jpg",
+          "https://randomuser.me/api/portraits/men/6.jpg",
+          "https://randomuser.me/api/portraits/men/7.jpg",
+          "https://randomuser.me/api/portraits/men/8.jpg",
+          "https://randomuser.me/api/portraits/men/9.jpg",
+          "https://randomuser.me/api/portraits/men/10.jpg"
+        ];
+        const femaleImages = [
+          "https://randomuser.me/api/portraits/women/1.jpg",
+          "https://randomuser.me/api/portraits/women/2.jpg",
+          "https://randomuser.me/api/portraits/women/3.jpg",
+          "https://randomuser.me/api/portraits/women/4.jpg",
+          "https://randomuser.me/api/portraits/women/5.jpg",
+          "https://randomuser.me/api/portraits/women/6.jpg",
+          "https://randomuser.me/api/portraits/women/7.jpg",
+          "https://randomuser.me/api/portraits/women/8.jpg",
+          "https://randomuser.me/api/portraits/women/9.jpg",
+          "https://randomuser.me/api/portraits/women/10.jpg"
+        ];
+        const image = gender === "Male"
+          ? faker.helpers.arrayElement(maleImages)
+          : faker.helpers.arrayElement(femaleImages);
+
         return {
           studentNumber,
-          firstName: faker.person.firstName(),
-          secondName: faker.person.middleName(),
-          lastName: faker.person.lastName(),
+          firstName: faker.person.firstName(fakerGender),
+          secondName: faker.person.middleName(fakerGender),
+          lastName: faker.person.lastName(fakerGender),
           email: faker.internet.email(),
           phoneNumber: faker.phone.number(),
           nationality: faker.location.country(),
@@ -152,9 +187,9 @@ mongoose.connect(DB).then(async () => {
           sponsor: randomSponsor._id,
           status: registrationStatus,
           registrationStatus,
-          gender: Math.random() < 0.5 ? "Male" : "Female",
+          gender,
           enrollmentYear,
-          image: faker.image.avatar(),
+          image,
           regNo,
           sessionId: session._id,
           payments: [],
