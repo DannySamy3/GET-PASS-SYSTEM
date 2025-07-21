@@ -268,7 +268,7 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({
       status: "fail",
       message:
-        "Failed. Use a clearer QR Code image.",
+        "Scan Failed. Image not clear.",
     });
   }
 };
