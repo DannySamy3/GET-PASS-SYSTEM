@@ -260,10 +260,10 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
     console.error("Error in adding scan:", error);
 
     // Create a failed scan record
-    const failedScan = await scanModel.create({
-      status: ScanStatus.FAILED,
-      date: Date.now(),
-    });
+    // const failedScan = await scanModel.create({
+    //   status: ScanStatus.FAILED,
+    //   date: Date.now(),
+    // });
 
     res.status(500).json({
       status: "fail",
