@@ -535,8 +535,8 @@ export const getStudentRegistrationStatusById = async (
     let className = null;
     if (student.classId) {
       const classDoc = await classModel.findById(student.classId);
-      if (classDoc && classDoc.classInitial) {
-        className = classDoc.classInitial;
+      if (classDoc && classDoc.name) {
+        className = classDoc.name;
       }
     }
 
