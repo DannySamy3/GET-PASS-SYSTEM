@@ -22,7 +22,6 @@ export interface IStudent extends Document {
   lastName: string;
   email: string;
   phoneNumber: string;
-
   nationality: string;
   classId: Schema.Types.ObjectId;
   sponsor: Schema.Types.ObjectId; // Reference to Sponsor model
@@ -32,6 +31,7 @@ export interface IStudent extends Document {
   enrollmentYear: number;
   image: string;
   regNo: string;
+  sessionId: Schema.Types.ObjectId; // Reference to Session model
 }
 
 // Student Schema
@@ -41,9 +41,8 @@ const studentSchema: Schema<IStudent> = new Schema(
     firstName: { type: String, required: true },
     secondName: { type: String, required: true },
     lastName: { type: String, required: true },
-    email: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
     phoneNumber: { type: String, required: true },
-
     nationality: { type: String, required: true },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -52,7 +51,7 @@ const studentSchema: Schema<IStudent> = new Schema(
     },
     sponsor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "sponsorModel", // Reference to Sponsor model
+      ref: "Sponsor", // Reference to Sponsor model
       required: true,
     },
     status: {
@@ -68,6 +67,11 @@ const studentSchema: Schema<IStudent> = new Schema(
     enrollmentYear: { type: Number, required: true },
     image: { type: String, required: true },
     regNo: { type: String, unique: true, required: false },
+    sessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Session", // Reference to Session model
+      required: true,
+    },
   },
   { timestamps: true }
 );
@@ -131,6 +135,6 @@ studentSchema.pre("save", async function (next) {
 });
 
 // Model definition
-const studentModel = mongoose.model<IStudent>("studentModel", studentSchema);
+const studentModel = mongoose.model<IStudent>("Student", studentSchema);
 
 export default studentModel;

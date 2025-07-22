@@ -3,7 +3,6 @@ import {
   editImageController,
   handleImageUpload,
 } from "../controllers/imageController";
-import { upload } from "../gcpStorage";
 
 const router = Router();
 
