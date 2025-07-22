@@ -531,6 +531,15 @@ export const getStudentRegistrationStatusById = async (
       scanStatus = "FAILED";
     }
 
+    // Fetch the class name using the student's classId
+    let className = null;
+    if (student.classId) {
+      const classDoc = await classModel.findById(student.classId);
+      if (classDoc && classDoc.classInitial) {
+        className = classDoc.classInitial;
+      }
+    }
+
     // Create a scan record for this student
     const scan = await scanModel.create({
       student: student._id,
@@ -547,6 +556,7 @@ export const getStudentRegistrationStatusById = async (
           status: scan.status,
         },
         student, // Include complete student details
+        className, // Add class name to response
       },
     });
   } catch (error) {
