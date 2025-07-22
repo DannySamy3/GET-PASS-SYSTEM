@@ -83,8 +83,8 @@ mongoose.connect(DB).then(async () => {
     // await counterModel.deleteMany({});
     // await sponsorModel.deleteMany({});
     // await sessionModel.deleteMany({});
-    // await paymentModel.deleteMany({});
-    // await sessionModel.deleteMany({});
+    await paymentModel.deleteMany({});
+    await sessionModel.deleteMany({});
     await scanModel.deleteMany({})
     // await userModal.deleteMany({});
 

@@ -40,14 +40,10 @@ export const createPayment = async (
     }
 
     // Check if payment amount matches the session amount exactly
-    if (amount !== session.amount) {
+    if (amount < session.amount) {
       res.status(400).json({
         status: "fail",
-        message: `Payment amount must be exactly ${
-          session.amount
-        }. The submitted amount of ${amount} is ${
-          amount < session.amount ? "less than" : "greater than"
-        } the required amount.`,
+        message: `Payment amount must be at least ${session.amount}. The submitted amount of ${amount} is less than the required amount.`,
       });
       return;
     }
@@ -260,10 +256,10 @@ export const updatePayment = async (
     const remainingToPay = activeSession.amount - existingPayment.amount;
 
     // Check if the total amount would not match exactly with the session amount
-    if (totalAmount !== activeSession.amount) {
+    if (totalAmount < activeSession.amount) {
       res.status(400).json({
         status: "fail",
-        message: `Total payment amount (${totalAmount}) must be exactly equal to the required session amount (${activeSession.amount}). Please pay exactly ${remainingToPay} to complete the payment.`,
+        message: `Total payment amount (${totalAmount}) must be at least equal to the required session amount (${activeSession.amount}). Please pay at least ${remainingToPay} to complete the payment.`,
       });
       return;
     }

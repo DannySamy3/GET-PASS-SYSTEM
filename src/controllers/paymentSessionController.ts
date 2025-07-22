@@ -36,12 +36,72 @@ export const createSession = async (
     // Validate dates
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to midnight
+
+    // 1. startDate must be today or in the future
+    if (start < today) {
+      res.status(400).json({
+        status: "fail",
+        message: "Session start date cannot be before today.",
+      });
+      return;
+    }
+
+    // 2. endDate must be after startDate (already present)
     if (end <= start) {
       res.status(400).json({
         status: "fail",
         message: "End date must be after start date",
       });
       return;
+    }
+
+    // 3. No duplicate startDate or endDate
+    const duplicateDateSession = await sessionModel.findOne({
+      $or: [
+        { startDate: start },
+        { endDate: end },
+      ],
+    });
+    if (duplicateDateSession) {
+      res.status(400).json({
+        status: "fail",
+        message: "A session with the same start or end date already exists.",
+      });
+      return;
+    }
+
+    // 4. No overlapping date ranges
+    const overlappingSession = await sessionModel.findOne({
+      $or: [
+        // New session starts inside an existing session
+        { startDate: { $lte: start }, endDate: { $gte: start } },
+        // New session ends inside an existing session
+        { startDate: { $lte: end }, endDate: { $gte: end } },
+        // New session completely covers an existing session
+        { startDate: { $gte: start }, endDate: { $lte: end } },
+      ],
+    });
+    if (overlappingSession) {
+      res.status(400).json({
+        status: "fail",
+        message: "Session date range overlaps with an existing session.",
+      });
+      return;
+    }
+
+    // 5. No creating a session whose date range is entirely before all existing sessions
+    const allSessions = await sessionModel.find({}).sort({ startDate: 1 });
+    if (allSessions.length > 0) {
+      const earliestSession = allSessions[0];
+      if (end < earliestSession.startDate) {
+        res.status(400).json({
+          status: "fail",
+          message: "Cannot create a session entirely before all existing sessions.",
+        });
+        return;
+      }
     }
 
     // If setting activeStatus to true, set all other sessions to false
@@ -63,6 +123,27 @@ export const createSession = async (
 
     const savedSession = await session.save();
 
+    // 6. Carry over overpayments from the most recent previous session
+    // Find the most recent previous session (ending before this session starts)
+    const previousSession = await sessionModel.findOne({ endDate: { $lt: start } }).sort({ endDate: -1 });
+    if (previousSession) {
+      // For each student, check if they overpaid in the previous session
+      const previousPayments = await paymentModel.find({ sessionId: previousSession._id });
+      for (const payment of previousPayments) {
+        if (payment.amount > previousSession.amount) {
+          const overpaidAmount = payment.amount - previousSession.amount;
+          // Create a payment record in the new session for the overpaid amount
+          await paymentModel.create({
+            amount: overpaidAmount,
+            sessionId: savedSession._id,
+            studentId: payment.studentId,
+            paymentStatus: overpaidAmount >= amount ? "PAID" : "PENDING",
+            remainingAmount: Math.max(0, amount - overpaidAmount),
+          });
+        }
+      }
+    }
+
     res.status(201).json({
       status: "success",
       data: {
@@ -82,6 +163,25 @@ export const getSessions = async (
 ): Promise<void> => {
   try {
     const sessions = await sessionModel.find().sort({ createdAt: -1 }).lean(); // Use lean() for better performance
+
+    // Automatically deactivate sessions whose endDate is before today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiredSessionIds = sessions
+      .filter(session => session.activeStatus && new Date(session.endDate) < today)
+      .map(session => session._id);
+    if (expiredSessionIds.length > 0) {
+      await sessionModel.updateMany(
+        { _id: { $in: expiredSessionIds } },
+        { activeStatus: false }
+      );
+      // Optionally, update the in-memory sessions array as well
+      sessions.forEach(session => {
+        if (expiredSessionIds.includes(session._id)) {
+          session.activeStatus = false;
+        }
+      });
+    }
 
     // Calculate remaining days for each session with grace
     const sessionsWithGrace = sessions.map((session) => {
@@ -247,6 +347,29 @@ export const updateSession = async (
 
     // If activating this session, deactivate others
     if (activeStatus === true) {
+      // Fetch the session's start and end dates (use updated values if provided, else current)
+      const newStartDate = startDate ? new Date(startDate) : currentSession.startDate;
+      const newEndDate = endDate ? new Date(endDate) : currentSession.endDate;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      // Check for any session (other than this one) with an earlier start or end date and not expired
+      const earlierActiveSession = await sessionModel.findOne({
+        _id: { $ne: sessionId },
+        endDate: { $gte: today }, // Only consider sessions that are not expired
+        $or: [
+          { startDate: { $lt: newStartDate } },
+          { endDate: { $lt: newEndDate } },
+        ],
+      });
+      if (earlierActiveSession) {
+        res.status(400).json({
+          status: "fail",
+          message: "Cannot activate this session while another non-expired session exists with an earlier date range.",
+        });
+        return;
+      }
+
       await sessionModel.updateMany(
         { _id: { $ne: sessionId } },
         { activeStatus: false }
@@ -269,6 +392,25 @@ export const updateSession = async (
         message: "Session update failed",
       });
       return;
+    }
+
+    // If amount was updated, check all students' payments for this session
+    if (amount !== undefined) {
+      const students = await studentModel.find({ sessionId });
+      for (const student of students) {
+        const payment = await paymentModel.findOne({ studentId: student._id, sessionId });
+        if (!payment || payment.amount < updatedSession.amount) {
+          await studentModel.findByIdAndUpdate(student._id, {
+            status: "NOT REGISTERED",
+            registrationStatus: "NOT REGISTERED",
+          });
+        } else {
+          await studentModel.findByIdAndUpdate(student._id, {
+            status: "REGISTERED",
+            registrationStatus: "REGISTERED",
+          });
+        }
+      }
     }
 
     const handleGraceChange = async () => {
