@@ -1,16 +1,10 @@
 import { Request, Response } from "express";
 import studentModel from "../models/studentModel";
-import scanModel from "../models/scanModel";
+import scanModel, { ScanStatus, ScanType, CampusStatus } from "../models/scanModel";
 import { RegistrationStatus } from "../models/studentModel";
 import classModel from "../models/classModel";
 import jsQR from "jsqr";
 import sharp from "sharp";
-
-enum ScanStatus {
-  COMPLETED = "COMPLETED",
-  ABSENT = "NOT FOUND",
-  FAILED = "FAILED",
-}
 
 export const addScan = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -28,6 +22,16 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({
         status: "fail",
         message: "No image data received",
+      });
+      return;
+    }
+
+    // Get scan type from query parameters (ENTRY or EXIT)
+    const scanType = req.query.type as ScanType;
+    if (!scanType || !Object.values(ScanType).includes(scanType)) {
+      res.status(400).json({
+        status: "fail",
+        message: "Scan type is required. Use 'type=ENTRY' for check-in or 'type=EXIT' for check-out",
       });
       return;
     }
@@ -168,7 +172,9 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
       console.log("All QR code detection attempts failed");
       // Create a failed scan record
       const failedScan = await scanModel.create({
-        status: ScanStatus.ABSENT,
+        status: ScanStatus.ERROR,
+        scanType: scanType,
+        campusStatus: CampusStatus.OUT_CAMPUS,
         date: Date.now(),
       });
 
@@ -224,25 +230,69 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let scanStatus = ScanStatus.FAILED;
+    // Check if student is registered
+    if (student.status !== RegistrationStatus.REGISTERED) {
+      res.status(403).json({
+        status: "fail",
+        message: "Student is not registered",
+      });
+      return;
+    }
 
-    if (student.status === RegistrationStatus.REGISTERED) {
-      scanStatus = ScanStatus.COMPLETED;
-    } else if (student.status === RegistrationStatus.UNREGISTERED) {
-      scanStatus = ScanStatus.FAILED;
+    // Campus entry/exit logic
+    let scanStatus = ScanStatus.FAILED;
+    let campusStatus = CampusStatus.OUT_CAMPUS;
+    let message = "";
+
+    if (scanType === ScanType.ENTRY) {
+      // Check-in logic
+      if (student.campusStatus === CampusStatus.IN_CAMPUS) {
+        // Student is already in campus, reject check-in
+        scanStatus = ScanStatus.FAILED;
+        campusStatus = CampusStatus.IN_CAMPUS;
+        message = "Student is already in campus. Please check-out first before checking in again.";
+      } else {
+        // Student is out of campus, allow check-in
+        scanStatus = ScanStatus.COMPLETED;
+        campusStatus = CampusStatus.IN_CAMPUS;
+        message = "Check-in successful. Student is now in campus.";
+      }
+    } else if (scanType === ScanType.EXIT) {
+      // Check-out logic
+      if (student.campusStatus === CampusStatus.OUT_CAMPUS) {
+        // Student is already out of campus, reject check-out
+        scanStatus = ScanStatus.FAILED;
+        campusStatus = CampusStatus.OUT_CAMPUS;
+        message = "Student is already out of campus. Please check-in first before checking out.";
+      } else {
+        // Student is in campus, allow check-out
+        scanStatus = ScanStatus.COMPLETED;
+        campusStatus = CampusStatus.OUT_CAMPUS;
+        message = "Check-out successful. Student is now out of campus.";
+      }
     }
 
     // Create the new scan record
     let newScan = await scanModel.create({
       student: studentId,
       status: scanStatus,
+      scanType: scanType,
+      campusStatus: campusStatus,
       date: Date.now(),
     });
+
+    // Update student's campus status and last scan date if scan was successful
+    if (scanStatus === ScanStatus.COMPLETED) {
+      await studentModel.findByIdAndUpdate(studentId, {
+        campusStatus: campusStatus,
+        lastScanDate: new Date(),
+      });
+    }
 
     // Populate the student field in the new scan record and select desired fields
     newScan = await newScan.populate({
       path: "student",
-      select: "firstName secondName lastName -_id", // Select these fields, exclude _id
+      select: "firstName secondName lastName campusStatus -_id", // Include campusStatus in response
     });
 
     // Structure the response to include the populated student and exclude unwanted fields
@@ -252,23 +302,19 @@ export const addScan = async (req: Request, res: Response): Promise<void> => {
         scan: {
           date: newScan.date,
           status: newScan.status,
+          scanType: newScan.scanType,
+          campusStatus: newScan.campusStatus,
           student: newScan.student, // Populated student object
         },
       },
+      message: message,
     });
   } catch (error) {
     console.error("Error in adding scan:", error);
 
-    // Create a failed scan record
-    // const failedScan = await scanModel.create({
-    //   status: ScanStatus.FAILED,
-    //   date: Date.now(),
-    // });
-
     res.status(500).json({
       status: "fail",
-      message:
-        "Scan Failed. Image not clear.",
+      message: "Scan Failed. Image not clear.",
     });
   }
 };
@@ -390,5 +436,74 @@ export const getScans = async (req: Request, res: Response): Promise<void> => {
         .status(500)
         .json({ message: "An unknown error occurred while fetching scans." });
     }
+  }
+};
+
+export const getStudentCampusStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { studentId } = req.params;
+
+    if (!studentId) {
+      res.status(400).json({
+        status: "fail",
+        message: "Student ID is required",
+      });
+      return;
+    }
+
+    const student = await studentModel.findById(studentId).select('firstName secondName lastName campusStatus lastScanDate');
+
+    if (!student) {
+      res.status(404).json({
+        status: "fail",
+        message: "Student not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        student: {
+          firstName: student.firstName,
+          secondName: student.secondName,
+          lastName: student.lastName,
+          campusStatus: student.campusStatus,
+          lastScanDate: student.lastScanDate,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error in getting student campus status:", error);
+    res.status(500).json({
+      status: "fail",
+      message: "Failed to get student campus status",
+    });
+  }
+};
+
+export const getAllStudentsCampusStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const students = await studentModel.find().select('firstName secondName lastName campusStatus lastScanDate regNo');
+
+    const campusStats = {
+      inCampus: students.filter(s => s.campusStatus === CampusStatus.IN_CAMPUS).length,
+      outCampus: students.filter(s => s.campusStatus === CampusStatus.OUT_CAMPUS).length,
+      total: students.length,
+    };
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        students,
+        campusStats,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getting all students campus status:", error);
+    res.status(500).json({
+      status: "fail",
+      message: "Failed to get students campus status",
+    });
   }
 };

@@ -8,10 +8,24 @@ enum ScanStatus {
   FAILED = "FAILED",
 }
 
+// Enum for scan type (entry/exit)
+enum ScanType {
+  ENTRY = "ENTRY",
+  EXIT = "EXIT",
+}
+
+// Enum for campus status
+enum CampusStatus {
+  IN_CAMPUS = "IN_CAMPUS",
+  OUT_CAMPUS = "OUT_CAMPUS",
+}
+
 // Interface for Scan Document
 export interface IScan extends Document {
   date: Date;
   status: ScanStatus;
+  scanType: ScanType; // New field to track if this is entry or exit
+  campusStatus: CampusStatus; // New field to track campus status after this scan
   student: mongoose.Types.ObjectId; // Reference to the Student model
 }
 
@@ -22,6 +36,16 @@ const scanSchema: Schema<IScan> = new Schema(
     status: {
       type: String,
       enum: Object.values(ScanStatus),
+      required: true,
+    },
+    scanType: {
+      type: String,
+      enum: Object.values(ScanType),
+      required: true,
+    },
+    campusStatus: {
+      type: String,
+      enum: Object.values(CampusStatus),
       required: true,
     },
     student: {
@@ -38,3 +62,4 @@ const scanSchema: Schema<IScan> = new Schema(
 const scanModel = mongoose.model<IScan>("Scan", scanSchema);
 
 export default scanModel;
+export { ScanStatus, ScanType, CampusStatus };

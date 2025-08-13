@@ -14,6 +14,12 @@ enum Gender {
   Female = "Female",
 }
 
+// Enum for campus status
+enum CampusStatus {
+  IN_CAMPUS = "IN_CAMPUS",
+  OUT_CAMPUS = "OUT_CAMPUS",
+}
+
 // Interface for Student Document
 export interface IStudent extends Document {
   studentNumber: number;
@@ -32,6 +38,8 @@ export interface IStudent extends Document {
   image: string;
   regNo: string;
   sessionId: Schema.Types.ObjectId; // Reference to Session model
+  campusStatus: CampusStatus; // New field to track current campus status
+  lastScanDate: Date; // New field to track last scan date
 }
 
 // Student Schema
@@ -72,6 +80,12 @@ const studentSchema: Schema<IStudent> = new Schema(
       ref: "Session", // Reference to Session model
       required: true,
     },
+    campusStatus: {
+      type: String,
+      enum: Object.values(CampusStatus),
+      default: CampusStatus.OUT_CAMPUS, // Default to out of campus
+    },
+    lastScanDate: { type: Date },
   },
   { timestamps: true }
 );

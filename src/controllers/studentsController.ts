@@ -12,7 +12,7 @@ import {
   handleImageUpload,
 } from "../controllers/imageController";
 import path from "path";
-import scanModel from "../models/scanModel";
+import scanModel, { ScanStatus, ScanType, CampusStatus } from "../models/scanModel";
 import { RegistrationStatus } from "../models/studentModel";
 
 interface ClassStats {
@@ -518,18 +518,59 @@ export const getStudentRegistrationStatusById = async (
     if (!student) {
       res.status(404).json({
         status: "fail",
-        message: "Student not found",
+        message: "Student ID not found in our records. Please check the ID and try again.",
+      });
+      return;
+    }
+
+    // Get scan type from query parameters (ENTRY or EXIT) - required
+    const scanType = req.query.type as ScanType;
+    if (!scanType || !Object.values(ScanType).includes(scanType)) {
+      res.status(400).json({
+        status: "fail",
+        message: "Please specify scan type: 'ENTRY' for entering campus or 'EXIT' for leaving campus",
       });
       return;
     }
 
     // Determine scan status based on registration status
-    let scanStatus = "FAILED";
+    let scanStatus = ScanStatus.FAILED;
+    let campusStatus = CampusStatus.OUT_CAMPUS;
+    let message = "";
+
+    // Campus entry/exit logic - scan type is always required
     if (student.status === RegistrationStatus.REGISTERED) {
-      scanStatus = "COMPLETED";
-    } else if (student.status === RegistrationStatus.UNREGISTERED) {
-      scanStatus = "FAILED";
-    }
+      if (scanType === ScanType.ENTRY) {
+        // Check-in logic
+                 if (student.campusStatus === CampusStatus.IN_CAMPUS) {
+           // Student is already in campus, reject check-in
+           scanStatus = ScanStatus.FAILED;
+           campusStatus = CampusStatus.IN_CAMPUS;
+           message = "Access Denied! Student is already inside campus.";
+         } else {
+           // Student is out of campus, allow check-in
+           scanStatus = ScanStatus.COMPLETED;
+           campusStatus = CampusStatus.IN_CAMPUS;
+           message = "Access Granted! Student can now enter campus.";
+         }
+      } else if (scanType === ScanType.EXIT) {
+        // Check-out logic
+                 if (student.campusStatus === CampusStatus.OUT_CAMPUS) {
+           // Student is already out of campus, reject check-out
+           scanStatus = ScanStatus.FAILED;
+           campusStatus = CampusStatus.OUT_CAMPUS;
+           message = "Access Denied! Student is already outside campus.";
+         } else {
+           // Student is in campus, allow check-out
+           scanStatus = ScanStatus.COMPLETED;
+           campusStatus = CampusStatus.OUT_CAMPUS;
+           message = "Access Granted! Student can now leave campus.";
+         }
+      }
+         } else if (student.status === RegistrationStatus.UNREGISTERED) {
+       scanStatus = ScanStatus.FAILED;
+       message = "NOT REGISTERED";
+     }
 
     // Fetch the class name using the student's classId
     let className = null;
@@ -540,25 +581,54 @@ export const getStudentRegistrationStatusById = async (
       }
     }
 
-    // Create a scan record for this student
+    // Create scan record for both successful and failed scans
     const scan = await scanModel.create({
       student: student._id,
       status: scanStatus,
+      scanType: scanType,
+      campusStatus: campusStatus,
       date: Date.now(),
     });
 
-    res.status(200).json({
-      status: "success",
-      data: {
-        registrationStatus: student.status,
-        scan: {
-          date: scan.date,
-          status: scan.status,
-        },
-        student, // Include complete student details
-        className, // Add class name to response
+    // Update student's campus status and last scan date if scan is successful
+    if (scanStatus === ScanStatus.COMPLETED) {
+      await studentModel.findByIdAndUpdate(studentId, {
+        campusStatus: campusStatus,
+        lastScanDate: new Date(),
+      });
+    }
+
+    // Return response with scan data for both success and failure
+    const responseData = {
+      registrationStatus: student.status,
+      scan: {
+        date: scan.date,
+        status: scan.status,
+        scanType: scan.scanType,
+        campusStatus: scan.campusStatus,
       },
-    });
+      student: {
+        ...student.toObject(),
+        campusStatus: campusStatus,
+      },
+      className, // Add class name to response
+    };
+
+    if (scanStatus === ScanStatus.COMPLETED) {
+      // Return success response
+      res.status(200).json({
+        status: "success",
+        data: responseData,
+        message: message,
+      });
+    } else {
+      // Return failed response with scan data
+      res.status(400).json({
+        status: "fail",
+        data: responseData,
+        message: message,
+      });
+    }
   } catch (error) {
     console.error("Error in getStudentRegistrationStatusById:", error);
     res.status(500).json({
