@@ -20,7 +20,7 @@ config({ path: "./.env" });
 // Get MongoDB connection string from the .env file
 const DB = process.env.DATABASE_LOCAL as string;
 
-const port = process.env.PORT || 8000; // Default port if not specified
+const port = process.env.PORT || 4000; // Default port if not specified
 
 // Connect to MongoDB Atlas
 mongoose
